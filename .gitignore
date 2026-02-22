@@ -1,0 +1,26 @@
+# --- Ignore Vivado Temp Files ---
+*.log
+*.jou
+*.str
+.Xil/
+*.os
+*.obj
+
+# --- Ignore Junk Folders ---
+# Use **/ to ensure it finds the folder regardless of where it is in the tree
+**/final.cache/
+**/final.hw/
+**/final.sim/
+**/final.ip_user_files/
+
+# --- The Runs Folder Strategy ---
+# 1. Ignore the entire runs folder and everything in it
+**/final.runs/*
+
+# Binaries 
+!**/final.runs/**/*.bit
+!**/final.runs/**/*.ltx
+
+# --- Source Files ---
+!*.xpr
+!**/final.srcs/**
