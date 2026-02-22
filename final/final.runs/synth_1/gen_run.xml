@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<GenRun Id="synth_1" LaunchPart="xc7a100tcsg324-1" LaunchTime="1771637954" LaunchIncrCheckpoint="$PSRCDIR/utils_1/imports/synth_1/rvfpganexys.dcp">
+<GenRun Id="synth_1" LaunchPart="xc7a100tcsg324-1" LaunchTime="1771792207" LaunchIncrCheckpoint="$PSRCDIR/utils_1/imports/synth_1/rvfpganexys.dcp">
+  <File Type="PA-TCL" Name="rvfpganexys.tcl"/>
   <File Type="REPORTS-TCL" Name="rvfpganexys_reports.tcl"/>
+  <File Type="RDS-RDS" Name="rvfpganexys.vds"/>
+  <File Type="RDS-PROPCONSTRS" Name="rvfpganexys_drc_synth.rpt"/>
   <File Type="RDS-UTIL" Name="rvfpganexys_utilization_synth.rpt"/>
   <File Type="RDS-UTIL-PB" Name="rvfpganexys_utilization_synth.pb"/>
-  <File Type="PA-TCL" Name="rvfpganexys.tcl"/>
-  <File Type="RDS-RDS" Name="rvfpganexys.vds"/>
   <File Type="RDS-DCP" Name="rvfpganexys.dcp"/>
+  <File Type="VDS-TIMINGSUMMARY" Name="rvfpganexys_timing_summary_synth.rpt"/>
+  <File Type="VDS-TIMING-PB" Name="rvfpganexys_timing_summary_synth.pb"/>
   <FileSet Name="sources" Type="DesignSrcs" RelSrcDir="$PSRCDIR/sources_1" RelGenDir="$PGENDIR/sources_1">
     <Filter Type="Srcs"/>
     <File Path="$PSRCDIR/sources_1/imports/src/VeeRwolf/VeeR_EL2CoreComplex/include/el2_pdef.vh">
@@ -1960,7 +1963,9 @@
     </Config>
   </FileSet>
   <Strategy Version="1" Minor="2">
-    <StratHandle Name="Vivado Synthesis Defaults" Flow="Vivado Synthesis 2024"/>
+    <StratHandle Name="Vivado Synthesis Defaults" Flow="Vivado Synthesis 2024">
+      <Desc>Vivado Synthesis Defaults</Desc>
+    </StratHandle>
     <Step Id="synth_design"/>
   </Strategy>
 </GenRun>
