@@ -1,0 +1,29 @@
+# --- Ignore Vivado Temp Files ---
+*.log
+*.jou
+*.str
+.Xil/
+*.os
+*.obj
+
+# --- Ignore Junk Folders ---
+*final.cache/
+*final.hw/
+*final.sim/
+*final.ip_user_files/
+
+# --- The Runs Folder (The Bitstream Strategy) ---
+# 1. Ignore the entire runs folder by default
+*final.runs/*
+
+# 2. But do NOT ignore the directory structure (so we can find the bit file)
+!*final.runs/**/
+
+# 3. Whitelist the bitstream and debug files
+!*final.runs/**/*.bit
+!*final.runs/**/*.ltx
+
+# --- Source Files ---
+# Ensure we keep the project file and sources
+!*.xpr
+!*final.srcs/**
