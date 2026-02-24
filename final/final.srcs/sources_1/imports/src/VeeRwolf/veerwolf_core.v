@@ -476,8 +476,8 @@ module veerwolf_core
    );
    
    bram vga_bram (
-    .vga_clk (0),
-    .gpu_clk (clk_vga),
+    .vga_clk (clk_vga),
+    .gpu_clk (0),
     .data_in (8'b0),
     .data_out (vga_data),
     .adr_rd (vga_adr),
