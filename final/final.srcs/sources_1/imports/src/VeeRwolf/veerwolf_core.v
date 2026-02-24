@@ -455,25 +455,35 @@ module veerwolf_core
    );
    
    // VGA 
+   wire vga_rd_en;
+   wire [16:0] vga_adr;
+   wire [7:0] vga_data;
+   
    wb_vga vga (
       // Wishbone slave interface
       .clk_vga   (clk_vga),
-      .wb_clk_i  (clk),
-      .wb_rst_i  (wb_rst),
-      .wb_adr_i  (wb_m2s_vga_adr[5:2]),
-      .wb_dat_i  (wb_m2s_vga_dat),
-      .wb_we_i   (wb_m2s_vga_we),
-      .wb_sel_i  (4'b1111),
-      .wb_cyc_i  (wb_m2s_vga_cyc),
-      .wb_stb_i  (wb_m2s_vga_stb),
-      .wb_dat_o  (wb_s2m_vga_dat),
-      .wb_ack_o  (wb_s2m_vga_ack),
+      .rst       (~rstn),
+      // Bram Ports
+      .rd_en     (vga_rd_en),
+      .rd_adr    (vga_adr),
+      .data      (vga_data),
       // Output Ports
       .VGA_Red   (VGA_Red),
       .VGA_Green (VGA_Green),
       .VGA_Blue  (VGA_Blue),
       .vsync     (vsync),
       .hsync      (hsync)
+   );
+   
+   bram vga_bram (
+    .vga_clk (0),
+    .gpu_clk (clk_vga),
+    .data_in (8'b0),
+    .data_out (vga_data),
+    .adr_rd (vga_adr),
+    .adr_wr (17'b0),
+    .rd_en (vga_rd_en),
+    .wr_en (1'b0)
    );
    
    // Keyboard 
