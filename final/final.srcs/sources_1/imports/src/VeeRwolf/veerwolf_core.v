@@ -94,9 +94,11 @@ module veerwolf_core
     inout wire [31:0]  io_data,
 `endif
 
-    input wire 	clk,
-    input wire  clk_vga,
+    input wire 	       clk,
+    input wire         clk_vga,
+    input wire         clk_gpu,
     input wire 	       rstn,
+    input wire         rst_vga,
     input wire 	       dmi_reg_en,
     input wire [6:0]   dmi_reg_addr,
     input wire 	       dmi_reg_wr_en,
@@ -454,15 +456,39 @@ module veerwolf_core
         .oen_padoen_o ()
    );
    
+   // GPU
+   wire gpu_wr_en;     
+   wire [16:0] gpu_adr;
+   wire [7:0] gpu_data;
+   
+   wb_gpu gpu (
+   // Wishbone slave interface
+      .wb_clk_i  (clk),
+      .wb_rst_i  (wb_rst),
+      .wb_adr_i  (wb_m2s_vga_adr[5:2]),
+      .wb_dat_i  (wb_m2s_vga_dat),
+      .wb_we_i   (wb_m2s_vga_we),
+      .wb_sel_i  (4'b1111),
+      .wb_cyc_i  (wb_m2s_vga_cyc),
+      .wb_stb_i  (wb_m2s_vga_stb),
+      .wb_dat_o  (wb_s2m_vga_dat),
+      .wb_ack_o  (wb_s2m_vga_ack),
+      
+      .gpu_clk  (clk_gpu),
+      .wr_en    (gpu_wr_en),
+      .wr_adr   (gpu_adr),
+      .data     (gpu_data)
+   );
+    
+    
    // VGA 
    wire vga_rd_en;
    wire [16:0] vga_adr;
    wire [7:0] vga_data;
    
-   wb_vga vga (
-      // Wishbone slave interface
+   vga vga (
       .clk_vga   (clk_vga),
-      .rst       (~rstn),
+      .rst       (rst_vga),
       // Bram Ports
       .rd_en     (vga_rd_en),
       .rd_adr    (vga_adr),
@@ -477,13 +503,13 @@ module veerwolf_core
    
    bram vga_bram (
     .vga_clk (clk_vga),
-    .gpu_clk (0),
-    .data_in (8'b0),
+    .gpu_clk (clk_gpu),
+    .data_in (gpu_data),
     .data_out (vga_data),
     .adr_rd (vga_adr),
-    .adr_wr (17'b0),
+    .adr_wr (gpu_adr),
     .rd_en (vga_rd_en),
-    .wr_en (1'b0)
+    .wr_en (gpu_wr_en)
    );
    
    // Keyboard 

@@ -70,6 +70,10 @@ module rvfpganexys
    wire          litedram_init_error;
    
    wire    clk_vga;
+   wire    rst_vga;
+   
+   wire    clk_gpu;
+   
    wire    clk_core;
    wire    rst_core;
    wire    user_clk;
@@ -80,7 +84,9 @@ module rvfpganexys
       .i_rst (user_rst),
       .o_clk_core (clk_core),
       .o_clk_vga (clk_vga),
-      .o_rst_core (rst_core));
+      .o_rst_core (rst_core),
+      .o_rst_vga (rst_vga),
+      .o_clk_gpu (clk_gpu));
 
    AXI_BUS #(32, 64, 6, 1) mem();
    AXI_BUS #(32, 64, 6, 1) cpu();
@@ -210,6 +216,7 @@ module rvfpganexys
      (.clk  (clk_core),
       .clk_vga (clk_vga),
       .rstn (~rst_core),
+      .rst_vga (rst_vga),
       .dmi_reg_rdata       (dmi_reg_rdata),
       .dmi_reg_wdata       (dmi_reg_wdata),
       .dmi_reg_addr        (dmi_reg_addr),

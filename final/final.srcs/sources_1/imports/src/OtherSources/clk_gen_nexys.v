@@ -26,13 +26,17 @@ module clk_gen_nexys
    input  wire i_rst,
    output wire o_clk_core,
    output wire o_clk_vga,
-   output reg o_rst_core);
+   output wire o_clk_gpu,
+   output reg o_rst_core,
+   output reg o_rst_vga);
 
    wire   clkfb;
    wire   locked;
-   reg 	  locked_r;
+   reg 	  locked_core_r;
+   reg    locked_vga_r;
    wire clk_core_unbuffered;
    wire clk_vga_unbuffered;
+   wire clk_gpu_unbuffered;
 
    PLLE2_BASE
      #(.BANDWIDTH("OPTIMIZED"),
@@ -40,12 +44,13 @@ module clk_gen_nexys
        .CLKIN1_PERIOD(10.0), //100MHz
        .CLKOUT0_DIVIDE(64), // Main clock 12.5MHz
        .CLKOUT1_DIVIDE(32), // Secondary clock 25MHz
+       .CLKOUT2_DIVIDE(8),
        .DIVCLK_DIVIDE(1),
        .STARTUP_WAIT("FALSE"))
    PLLE2_BASE_inst(
       .CLKOUT0(clk_core_unbuffered), // Raw output
       .CLKOUT1(clk_vga_unbuffered),  // Raw output
-      .CLKOUT2(),
+      .CLKOUT2(clk_gpu_unbuffered),
       .CLKOUT3(),
       .CLKOUT4(),
       .CLKOUT5(),
@@ -57,11 +62,17 @@ module clk_gen_nexys
       .CLKFBIN(clkfb));
 
    always @(posedge o_clk_core) begin
-      locked_r <= locked;
-      o_rst_core <= !locked_r;
+      locked_core_r <= locked;
+      o_rst_core <= !locked_core_r;
+   end
+   
+   always @(posedge o_clk_vga) begin
+      locked_vga_r <= locked;
+      o_rst_vga <= !locked_vga_r;
    end
 
 // Instantiate the buffers to move the signals to the global clock network
    BUFG clk_core_bufg (.I(clk_core_unbuffered), .O(o_clk_core));
    BUFG clk_vga_bufg  (.I(clk_vga_unbuffered),  .O(o_clk_vga));
+   BUFG clk_gpu_bufg  (.I(clk_gpu_unbuffered),  .O(o_clk_gpu));
 endmodule
