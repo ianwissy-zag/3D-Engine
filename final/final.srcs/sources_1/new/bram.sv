@@ -59,16 +59,10 @@ module bram#(
             memory[addr] = 8'h00;
         end
 
-        // 2. Define a box in the center
-        // Center of 320 is 160. Box from 140 to 180.
-        // Center of 240 is 120. Box from 100 to 140.
-        for (y = 100; y < 140; y = y + 1) begin
-            for (x = 140; x < 180; x = x + 1) begin
-                // Calculate the 1D index
-                addr = (y * 320) + x;
-                // Write "Full On" white (assuming 8-bit grayscale/RGB332)
-                memory[addr] = 8'hFF; 
-            end
+        memory[38560] = 8'hFF; 
+        memory[38561] = 8'hFF;
+        memory[38880] = 8'hFF;
+        memory[38881] = 8'hFF;
         end
     end
 endmodule

@@ -39,7 +39,7 @@ module wb_vga #(
     logic [8:0] scaled_x; 
     logic [7:0] scaled_y; 
     assign scaled_x = pixel_col[9:1]; 
-    assign scaled_y = pixel_row[9:1]; 
+    assign scaled_y = pixel_row[8:1]; 
 
     // Address calculations
     always_ff @(posedge clk_vga or posedge rst) begin
@@ -48,7 +48,7 @@ module wb_vga #(
             rd_en  <= 1'b0;
         end else begin
             // It is probably not neccessary to be this efficent 
-            rd_adr <= (scaled_y << 8) + (scaled_y << 6) + scaled_x;
+            rd_adr <= ({9'd0, scaled_y} << 8) + ({9'd0, scaled_y} << 6) + {8'd0, scaled_x};
             rd_en  <= px_en_dtg;
         end
     end
@@ -95,9 +95,9 @@ module wb_vga #(
             VGA_Green = green_mapped;
             VGA_Blue  = blue_mapped;
         end else begin
-            VGA_Red   = 4'd0;
-            VGA_Green = 4'd0;
-            VGA_Blue  = 4'd0;
+            VGA_Red   = 4'd5;
+            VGA_Green = 4'd5;
+            VGA_Blue  = 4'd5;
         end
     end
 
