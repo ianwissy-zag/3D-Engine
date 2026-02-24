@@ -13,11 +13,9 @@
 **/final.sim/
 **/final.ip_user_files/
 
-# --- The Runs Folder Strategy ---
-# 1. Ignore the entire runs folder and everything in it
-**/final.runs/*
-
-# Binaries 
+# Runs
+**/final.runs/**/*
+!**/final.runs/**/
 !**/final.runs/**/*.bit
 !**/final.runs/**/*.ltx
 
