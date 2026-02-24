@@ -91,9 +91,9 @@ module vga #(
     // Output to VGA
     always_comb begin
         if (px_en_d2) begin
-            VGA_Red   = red_mapped;
-            VGA_Green = green_mapped;
-            VGA_Blue  = blue_mapped;
+            VGA_Red   = 4'd4;
+            VGA_Green = 4'd0;
+            VGA_Blue  = 4'd5;
         end else begin
             VGA_Red   = 4'd0;
             VGA_Green = 4'd0;
