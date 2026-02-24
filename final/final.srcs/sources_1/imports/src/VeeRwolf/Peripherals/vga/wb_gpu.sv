@@ -52,8 +52,8 @@ module wb_gpu #()(
     
     // Temp assignments 
     always_ff @(posedge gpu_clk) begin
-        wr_en <= '0;
-        wr_adr <= '0;
-        data <= '0;
+        wr_en <= '1;
+        wr_adr <= 17'd38560;
+        data <= 8'b11100000;
     end
 endmodule
