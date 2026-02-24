@@ -95,9 +95,9 @@ module wb_vga #(
             VGA_Green = green_mapped;
             VGA_Blue  = blue_mapped;
         end else begin
-            VGA_Red   = 4'd5;
-            VGA_Green = 4'd5;
-            VGA_Blue  = 4'd5;
+            VGA_Red   = 4'd0;
+            VGA_Green = 4'd0;
+            VGA_Blue  = 4'd0;
         end
     end
 
