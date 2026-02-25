@@ -1,13 +1,7 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
-#include <stdint.h>
-#include "linalg.h"
 #include "raycaster.h" /* Included for the fixed32 definition */
-
-/* Global float data (The Bridge - read by renderer) */
-extern Vector3f playerPos;
-extern Vector3f playerDir;
 
 /* Global toggles */
 extern char movingForward;
@@ -27,6 +21,11 @@ typedef int32_t fixed32;
  * Initialize the player.
  */
 void initPlayer();
+/*
+* Rotate the player one step in the given direciton
+*/
+
+void rotatePlayer(int direction);
 
 /**
  * Update the player for the current frame.
@@ -51,7 +50,5 @@ void movePlayer(fixed32 dx, fixed32 dy);
  * Returns: Zero if the vector should not be clipped, non-zero otherwise.
  */
 int clipMovement(fixed32 dx, fixed32 dy);
-
-void syncPlayerStateToFloat();
 
 #endif /* PLAYER_H */

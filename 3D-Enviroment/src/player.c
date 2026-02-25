@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <stdint.h>
 
 #include "config.h"
@@ -17,17 +16,12 @@
 #endif
 
 /* Pre-calculate constants to avoid float math during runtime */
-#define PLAYER_SIZE_FP ((fixed32)(PLAYER_SIZE * 65536.0f))
-#define PLAYER_MOVEMENT_SPEED_FP ((fixed32)(PLAYER_MOVEMENT_SPEED * 65536.0f))
+#define PLAYER_SIZE_FP             PLAYER_SIZE * 65536
+#define PLAYER_MOVEMENT_SPEED_FP   PLAYER_MOVEMENT_SPEED * 65536
 
-/* Extern the LUTs from raycast.c */
+/* Extern the LUTs from raycast.h */
 extern const int32_t SIN_LUT[];
 extern const int32_t COS_LUT[];
-
-/* Global float data exposed to the rest of the engine */
-Vector3f playerPos    = {PLAYER_START_X, PLAYER_START_Y, 1};
-Vector3f playerDir    = {PLAYER_DIR_X, PLAYER_DIR_Y, 1};
-Vector3f viewplaneDir = {0, 0, 1}; // No longer externing if we define it here, make sure it matches headers!
 
 /* Internal fixed-point state */
 fixed32 fpPlayerPosX;
@@ -39,7 +33,6 @@ char movingForward    = FALSE;
 char movingBack       = FALSE;
 char turningLeft      = FALSE;
 char turningRight     = FALSE;
-char playerIsRunning  = FALSE;
 
 #define ROT_SPEED_INT 2 
 
@@ -91,11 +84,8 @@ void movePlayer(fixed32 dx, fixed32 dy) {
     }
 }
 
-void updatePlayerFP() {
+void updatePlayer() {
     fixed32 moveSpeed = PLAYER_MOVEMENT_SPEED_FP; 
-
-    if(playerIsRunning)
-        moveSpeed *= 2;
 
     fixed32 dirX = COS_LUT[playerAngleIndex];
     fixed32 dirY = SIN_LUT[playerAngleIndex];
@@ -107,7 +97,7 @@ void updatePlayerFP() {
         movePlayer(MUL_FP(-dirX, moveSpeed), MUL_FP(-dirY, moveSpeed));
     } 
     
-    int turnSpeed = playerIsRunning ? 2 : 1;
+    int turnSpeed = 1;
     
     if(turningLeft) {
         rotatePlayer(-turnSpeed);
@@ -117,13 +107,6 @@ void updatePlayerFP() {
     }
 }
 
-void updatePlayer() {
-    // Calculate player location and angle in fixed point
-    updatePlayerFP();
-
-    // Send the data to the renderer in float. 
-    syncPlayerStateToFloat();
-}
 
 void initPlayer() {
     int row, col;
@@ -134,27 +117,8 @@ void initPlayer() {
                 // Initialize internal fixed-point position
                 fpPlayerPosX = TO_FP((WALL_SIZE * col) + (WALL_SIZE / 2));
                 fpPlayerPosY = TO_FP((WALL_SIZE * row) + (WALL_SIZE / 2));
-                
-                // Immediately sync the floats so the first frame renders correctly
-                syncPlayerStateToFloat();
                 return;
             }
         }
     }
-}
-
-/* =======================================
- * Floating point bridge to renderer 
- * ========================================= */
-
-void syncPlayerStateToFloat() {
-    playerPos.x = (float)fpPlayerPosX / 65536.0f;
-    playerPos.y = (float)fpPlayerPosY / 65536.0f;
-    
-    playerDir.x = (float)COS_LUT[playerAngleIndex] / 65536.0f;
-    playerDir.y = (float)SIN_LUT[playerAngleIndex] / 65536.0f;
-
-    uint8_t planeAngle = playerAngleIndex + 64; 
-    viewplaneDir.x = (float)COS_LUT[planeAngle] / 65536.0f;
-    viewplaneDir.y = (float)SIN_LUT[planeAngle] / 65536.0f;
 }
