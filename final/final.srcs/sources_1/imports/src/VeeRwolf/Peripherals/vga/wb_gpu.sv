@@ -51,9 +51,22 @@ module wb_gpu #()(
     end
     
     // Temp assignments 
+    // One-shot state register
+    logic wrote_once = 1'b0;
+
     always_ff @(posedge gpu_clk) begin
-        wr_en <= '1;
-        wr_adr <= 17'd38560;
-        data <= 8'b11100000;
+        if (wb_rst_i) begin
+            wr_en      <= 1'b0;
+            wrote_once <= 1'b0;
+        end else if (!wrote_once) begin
+            // Write the pixel on the first active clock cycle
+            wr_en      <= 1'b1;
+            wr_adr     <= 17'd38560;
+            data       <= 8'b11100000; // Red pixel (assuming 3-3-2 RGB)
+            wrote_once <= 1'b1;
+        end else begin
+            // Crucial: Drop write enable to 0 forever after the first write
+            wr_en      <= 1'b0; 
+        end
     end
 endmodule
