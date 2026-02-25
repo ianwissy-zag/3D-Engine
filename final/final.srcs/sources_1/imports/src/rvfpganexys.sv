@@ -215,6 +215,7 @@ module rvfpganexys
    swervolf
      (.clk  (clk_core),
       .clk_vga (clk_vga),
+      .clk_gpu(clk_gpu),
       .rstn (~rst_core),
       .rst_vga (rst_vga),
       .dmi_reg_rdata       (dmi_reg_rdata),
