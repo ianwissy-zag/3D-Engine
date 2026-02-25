@@ -27,7 +27,7 @@ module bram#(
     end
     
     always_ff @(posedge gpu_clk) begin
-        if (wr_en && !wr_en) begin
+        if (wr_en) begin
             memory[adr_wr] <= data_in;
         end
     end
