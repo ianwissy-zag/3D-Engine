@@ -15,10 +15,9 @@ module wb_ps2_keyboard (
     input  logic        ps2_data
 );
 
-    // Input Data
-    wire [7:0]   key_reg;     // Scan Code
-    wire         ready_reg;   // High on new key
-    wire         release_reg; // High on key release
+    // Wishbone Control Signals
+    wire wb_valid_cycle = wb_cyc_i && wb_stb_i;
+    wire wb_read_en     = wb_valid_cycle && !wb_we_i && !wb_ack_o;
 
     // FSM States
     typedef enum logic {
@@ -26,15 +25,15 @@ module wb_ps2_keyboard (
         DECODE
     } state_t;
 
-    state_t state_q, state_next;
+    state_t state, state_next;
 
     // FSM Registers
-    logic [10:0] shift_reg_q,       shift_reg_next;     // Raw data from the keyboard
-    logic [3:0]  bit_count_q,       bit_count_next;     // Tracks incoming bits
-    logic        is_break_code_q,   is_break_code_next; // Flags if 0xF0 was received
-    logic [7:0]  key_reg_q,         key_reg_next;
-    logic        ready_reg_q,       ready_reg_next;
-    logic        release_reg_q,     release_reg_next;
+    logic [10:0] shift_reg,       shift_reg_next;     // Raw data from the keyboard
+    logic [3:0]  bit_count,       bit_count_next;     // Tracks incoming bits
+    logic        is_break_code,   is_break_code_next; // Flags if 0xF0 was received
+    logic [7:0]  key_reg,         key_reg_next;       // Scan Code
+    logic        ready_reg,       ready_reg_next;     // High on new key
+    logic        release_reg,     release_reg_next;   // High on key release
 
     // Clock sync because keyboard clock is slow
     logic [2:0] ps2_clk_sync;
@@ -51,33 +50,33 @@ module wb_ps2_keyboard (
     // State Transition
     always_ff @(posedge wb_clk_i) begin
         if (wb_rst_i) begin
-            state_q         <= SHIFTING;
-            shift_reg_q     <= 11'd0;
-            bit_count_q     <= 4'd0;
-            is_break_code_q <= 1'b0;
-            key_reg_q       <= 8'h00;
-            ready_reg_q     <= 1'b0;
-            release_reg_q   <= 1'b0;
+            state         <= SHIFTING;
+            shift_reg     <= 11'd0;
+            bit_count     <= 4'd0;
+            is_break_code <= 1'b0;
+            key_reg       <= 8'h00;
+            ready_reg     <= 1'b0;
+            release_reg   <= 1'b0;
         end else begin
-            state_q         <= state_next;
-            shift_reg_q     <= shift_reg_next;
-            bit_count_q     <= bit_count_next;
-            is_break_code_q <= is_break_code_next;
-            key_reg_q       <= key_reg_next;
-            ready_reg_q     <= ready_reg_next;
-            release_reg_q   <= release_reg_next;
+            state         <= state_next;
+            shift_reg     <= shift_reg_next;
+            bit_count     <= bit_count_next;
+            is_break_code <= is_break_code_next;
+            key_reg       <= key_reg_next;
+            ready_reg     <= ready_reg_next;
+            release_reg   <= release_reg_next;
         end
     end
 
     // Next State Logic
     always_comb begin
-        state_next         = state_q;
-        shift_reg_next     = shift_reg_q;
-        bit_count_next     = bit_count_q;
-        is_break_code_next = is_break_code_q;
-        key_reg_next       = key_reg_q;
-        ready_reg_next     = ready_reg_q;
-        release_reg_next   = release_reg_q;
+        state_next         = state;
+        shift_reg_next     = shift_reg;
+        bit_count_next     = bit_count;
+        is_break_code_next = is_break_code;
+        key_reg_next       = key_reg;
+        ready_reg_next     = ready_reg;
+        release_reg_next   = release_reg;
 
         // This clears the ready so multiple reads on
         // the same key don't occur.
@@ -85,29 +84,33 @@ module wb_ps2_keyboard (
             ready_reg_next = 1'b0;
         end
 
-        case (state_q)
+        case (state)
+            // This is the state where data is read in from the keyboard
+            // one bit at a time. 
             SHIFTING: begin
                 // Capture incoming bits
                 if (ps2_clk_falling) begin
                     // Shift the bits in.
-                    shift_reg_next = {ps2_data_sync[2], shift_reg_q[10:1]};
+                    shift_reg_next = {ps2_data_sync[2], shift_reg[10:1]};
                     
-                    if (bit_count_q == 4'd10) begin
+                    if (bit_count == 4'd10) begin
                         bit_count_next = 4'd0;
                         state_next     = DECODE;
                     end else begin
-                        bit_count_next = bit_count_q + 4'd1;
+                        bit_count_next = bit_count + 4'd1;
                     end
                 end
             end
-
+            
+            // This is the state where the actual key value is 
+            // extracted from the data. 
             DECODE: begin
-                if (shift_reg_q[9:2] == 8'hF0) begin
+                if (shift_reg[9:2] == 8'hF0) begin
                     is_break_code_next = 1'b1; 
                 end else begin
                     // Extract the actuall scancode
-                    key_reg_next       = shift_reg_q[9:2]; 
-                    release_reg_next   = is_break_code_q; 
+                    key_reg_next       = shift_reg[9:2]; 
+                    release_reg_next   = is_break_code; 
                     ready_reg_next     = 1'b1;
                     is_break_code_next = 1'b0; 
                 end
@@ -116,15 +119,6 @@ module wb_ps2_keyboard (
             end
         endcase
     end
-
-    // Output Logic
-    assign key_reg     = key_reg_q;
-    assign ready_reg   = ready_reg_q;
-    assign release_reg = release_reg_q;
-
-    // Wishbone
-    wire wb_valid_cycle = wb_cyc_i && wb_stb_i;
-    wire wb_read_en     = wb_valid_cycle && !wb_we_i && !wb_ack_o;
 
     // Acknowledgement
     always_ff @(posedge wb_clk_i) begin
