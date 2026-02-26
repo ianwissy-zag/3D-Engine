@@ -5,15 +5,28 @@
 #include "raycaster.h"
 #include "player.h"
 
+
+#define GPU_ADR 0x80001500 
+
 /* Expose the player's true integer state */
 extern fixed32 fpPlayerPosX;
 extern fixed32 fpPlayerPosY;
 extern uint8_t playerAngleIndex;
 
-
 // Camera x position lookup table [-1, 1] in fixed-point
 fixed32 cameraX_LUT[VIEWPLANE_LENGTH];
 char lut_initialized = 0;
+
+// This function reads the reg at address dir and returns the value.
+inline int READ_REG(int dir){
+    return (*(volatile unsigned *)dir);
+}
+
+// This function writes the value "value" to address "dir" and returns nothing.
+inline void WRITE_REG(int dir, int value){
+    (*(volatile unsigned *)dir) = (value);
+    return;
+}
 
 void run_integer_raycast() {
     // Load the lookup table for x positions 
@@ -101,7 +114,33 @@ void run_integer_raycast() {
 
         if (perpWallDist <= 0) perpWallDist = 1;
 
-        // TODO ADD WB WRITES TO GPU
+        // Write to the GPU
+        
+        int height = (240 << FP_SHIFT) / perpWallDist;
+        
+        // Clamp height to 8-bit max (More than we need)
+        if (height > 255) height = 255;
+        if (height < 0) height = 0;
+
+        // 2. Determine 8-bit color based on wall orientation
+        uint8_t color;
+        if (side == 0) {
+            // Hit an X-axis boundary (East/West wall)
+            color = 0xE0; 
+        } else {
+            // Hit a Y-axis boundary (North/South wall)
+            color = 0x03; 
+        }
+
+        // 3. Pack data according to Wishbone module mapping:
+        // [24:17] height | [16:9] color | [8:0] pixel_column
+        uint32_t wb_data = 0;
+        wb_data |= (x & 0x1FF);               // 9 bits for column
+        wb_data |= (color & 0xFF) << 9;       // 8 bits for color
+        wb_data |= (height & 0xFF) << 17;     // 8 bits for height
+
+        // 4. Write to GPU
+        WRITE_REG(GPU_ADR, wb_data);
     }
 }
 

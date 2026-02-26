@@ -36,9 +36,6 @@ char turningRight     = FALSE;
 
 #define ROT_SPEED_INT 2 
 
-/* =========================================
- * FPGA / HARDWARE LOGIC (Pure Integer)
- * ========================================= */
 
 void rotatePlayer(int direction) {
     playerAngleIndex += (direction * ROT_SPEED_INT);
