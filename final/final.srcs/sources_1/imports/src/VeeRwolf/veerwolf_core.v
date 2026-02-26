@@ -99,6 +99,7 @@ module veerwolf_core
     input wire         clk_gpu,
     input wire 	       rstn,
     input wire         rst_vga,
+    input wire         rst_gpu,
     input wire 	       dmi_reg_en,
     input wire [6:0]   dmi_reg_addr,
     input wire 	       dmi_reg_wr_en,
@@ -475,6 +476,7 @@ module veerwolf_core
       .wb_ack_o  (wb_s2m_vga_ack),
       
       .gpu_clk  (clk_gpu),
+      .gpu_rst  (rst_gpu),
       .wr_en    (gpu_wr_en),
       .wr_adr   (gpu_adr),
       .data     (gpu_data)

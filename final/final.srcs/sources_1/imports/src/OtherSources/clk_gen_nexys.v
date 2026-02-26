@@ -28,12 +28,14 @@ module clk_gen_nexys
    output wire o_clk_vga,
    output wire o_clk_gpu,
    output reg o_rst_core,
-   output reg o_rst_vga);
+   output reg o_rst_vga,
+   output reg o_rst_gpu);
 
    wire   clkfb;
    wire   locked;
    reg 	  locked_core_r;
    reg    locked_vga_r;
+   reg    locked_gpu_r;
    wire clk_core_unbuffered;
    wire clk_vga_unbuffered;
    wire clk_gpu_unbuffered;
@@ -69,6 +71,11 @@ module clk_gen_nexys
    always @(posedge o_clk_vga) begin
       locked_vga_r <= locked;
       o_rst_vga <= !locked_vga_r;
+   end
+   
+   always @(posedge o_clk_gpu) begin
+      locked_gpu_r <= locked;
+      o_rst_gpu <= !locked_gpu_r;
    end
 
 // Instantiate the buffers to move the signals to the global clock network
