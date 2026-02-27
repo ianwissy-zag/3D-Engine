@@ -458,7 +458,7 @@ module veerwolf_core
    );
    
    // GPU
-   wire gpu_wr_en;     
+   wire gpu_wr_en, gpu_bram_inx;     
    wire [16:0] gpu_adr;
    wire [7:0] gpu_data;
    
@@ -477,6 +477,7 @@ module veerwolf_core
       
       .gpu_clk  (clk_gpu),
       .gpu_rst  (rst_gpu),
+      .bram_inx (gpu_bram_inx),
       .wr_en    (gpu_wr_en),
       .wr_adr   (gpu_adr),
       .data     (gpu_data)
@@ -484,7 +485,7 @@ module veerwolf_core
     
     
    // VGA 
-   wire vga_rd_en;
+   wire vga_rd_en, vga_bram_inx;
    wire [16:0] vga_adr;
    wire [7:0] vga_data;
    
@@ -495,6 +496,7 @@ module veerwolf_core
       .rd_en     (vga_rd_en),
       .rd_adr    (vga_adr),
       .data      (vga_data),
+      .bram_inx  (vga_bram_inx),
       // Output Ports
       .VGA_Red   (VGA_Red),
       .VGA_Green (VGA_Green),
@@ -506,6 +508,9 @@ module veerwolf_core
    bram vga_bram (
     .vga_clk (clk_vga),
     .gpu_clk (clk_gpu),
+    .gpu_rst (rst_gpu),
+    .gpu_bram_inx (gpu_bram_inx),
+    .vga_bram_inx (vga_bram_inx),
     .data_in (gpu_data),
     .data_out (vga_data),
     .adr_rd (vga_adr),

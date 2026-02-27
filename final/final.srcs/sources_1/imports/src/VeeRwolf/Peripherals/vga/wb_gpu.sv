@@ -17,6 +17,7 @@ module wb_gpu #(
     // 100 MHz Clock
     input  logic                gpu_clk,
     input  logic                gpu_rst,
+    input  logic                bram_inx,
 
     // VGA Ports 
     output logic                wr_en,
@@ -63,16 +64,22 @@ module wb_gpu #(
 
     // Read
     always_ff @(posedge wb_clk_i) begin
-        if (wb_read_en) begin
+        if (wb_rst_i) begin
+            wb_dat_o <= '0;
+        end else if (wb_read_en) begin
             case (wb_adr_i)
-               default: wb_dat_o <= '0;
+                4'h0:    wb_dat_o <= {31'b0, wb_bram_inx_sync};
+                default: wb_dat_o <= '0;
             endcase 
         end
         else wb_dat_o <= '0;
     end
     
     // ==============================================================
-    //    Clock Domain Crossing
+    //    Clock Domain Crossings
+    // ====================================
+    
+    //------------ Wishbone to GPU ----------------
     
     // Double flip flop to cross clock domain
     logic [8:0] gpu_column, gpu_column_meta;
@@ -94,12 +101,27 @@ module wb_gpu #(
         gpu_height <= gpu_height_meta;
         gpu_toggle <= gpu_toggle_meta;
         
-        // Stage 3 (Extra stage because 
+        // Stage 3
         gpu_toggle_d1 <= gpu_toggle;
     end  
     
     logic new_data_pulse;
     assign new_data_pulse = gpu_toggle ^ gpu_toggle_d1;
+    
+    // ------------------ GPU to Wishbone ---------------
+    
+    logic wb_bram_inx_meta;
+    logic wb_bram_inx_sync;
+
+    always_ff @(posedge wb_clk_i) begin
+        if (wb_rst_i) begin
+            wb_bram_inx_meta <= 1'b0;
+            wb_bram_inx_sync <= 1'b0;
+        end else begin
+            wb_bram_inx_meta <= bram_inx;
+            wb_bram_inx_sync <= wb_bram_inx_meta;
+        end
+    end
     
     // ============================================
     // GPU (100 MHz)
