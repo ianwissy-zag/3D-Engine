@@ -73,6 +73,7 @@ module rvfpganexys
    wire    rst_vga;
    
    wire    clk_gpu;
+   wire    rst_gpu;
    
    wire    clk_core;
    wire    rst_core;
@@ -86,7 +87,8 @@ module rvfpganexys
       .o_clk_vga (clk_vga),
       .o_rst_core (rst_core),
       .o_rst_vga (rst_vga),
-      .o_clk_gpu (clk_gpu));
+      .o_clk_gpu (clk_gpu),
+      .o_rst_gpu (rst_gpu));
 
    AXI_BUS #(32, 64, 6, 1) mem();
    AXI_BUS #(32, 64, 6, 1) cpu();
@@ -215,9 +217,10 @@ module rvfpganexys
    swervolf
      (.clk  (clk_core),
       .clk_vga (clk_vga),
-      .clk_gpu(clk_gpu),
       .rstn (~rst_core),
       .rst_vga (rst_vga),
+      .clk_gpu (clk_gpu),
+      .rst_gpu (rst_gpu),
       .dmi_reg_rdata       (dmi_reg_rdata),
       .dmi_reg_wdata       (dmi_reg_wdata),
       .dmi_reg_addr        (dmi_reg_addr),

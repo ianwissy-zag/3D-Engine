@@ -101,18 +101,19 @@ const int32_t COS_LUT[LUT_STEPS] = {
 /* =========================================
  * INTEGER RAYCASTING ALGORITHM
  * ========================================= */
-/* Ensure you have this defined to match your WALL_SIZE. (If WALL_SIZE is 64, log2(64) = 6) */
+
+// THis shift ammount is associated with a wall size of 64
 #define WALL_SHIFT 6 
 
-/* We precompute cameraX to save 320 slow divisions per frame */
+// Camera x position lookup table [-1, 1] in fixed-point
 fixed32 cameraX_LUT[VIEWPLANE_LENGTH];
 char lut_initialized = 0;
 
 void run_integer_raycast_test() {
-    // 1. One-time initialization of the camera matrix plane (saves division)
+    // Load the lookup table for x positions 
     if (!lut_initialized) {
         for (int x = 0; x < VIEWPLANE_LENGTH; x++) {
-            // cameraX goes from -1.0 to +1.0
+            // Map x coordinate to range [-1, 1] in fixed-point
             cameraX_LUT[x] = IDIV(TO_FP(2 * x), TO_FP(VIEWPLANE_LENGTH)) - TO_FP(1);
         }
         lut_initialized = 1;

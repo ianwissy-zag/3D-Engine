@@ -52,4 +52,6 @@ void movePlayer(fixed32 dx, fixed32 dy);
  */
 int clipMovement(fixed32 dx, fixed32 dy);
 
+void syncPlayerStateToFloat();
+
 #endif /* PLAYER_H */
