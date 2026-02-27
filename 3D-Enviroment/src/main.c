@@ -4,6 +4,7 @@
 
 #define KB_DATA      0x8000160C
 #define KB_READY     0x80001610
+#define KB_RELEASE   0x80001614
 
 // This function reads the reg at address dir and returns the value.
 inline int READ_REG(int dir){
@@ -45,39 +46,36 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
 char gameIsRunning    = TRUE;
 
 void readInputs(){
-     int ready = READ_REG(KB_READY);
+    int ready = READ_REG(KB_READY);
+    int release = READ_REG(KB_RELEASE);
     if (ready == 1) {
         int current_char = READ_REG(KB_DATA);
         current_char = scancode_to_ascii[current_char];
         if (current_char == 'w'){
             movingForward = TRUE;
-            turningLeft = FALSE;
-            turningRight = FALSE;
-            movingBack = FALSE;
         }
         if (current_char == 'a'){
-            movingForward = FALSE;
             turningLeft = TRUE;
-            turningRight = FALSE;
-            movingBack = FALSE;
         }
         if (current_char == 's'){
-            movingForward = FALSE;
-            turningLeft = FALSE;
-            turningRight = FALSE;
             movingBack = TRUE;
         }
         if (current_char == 'd'){
-            movingForward = TRUE;
-            turningLeft = FALSE;
             turningRight = TRUE;
-            movingBack = FALSE;
         }
-        if (current_char == 'q'){
-            movingForward = FALSE;
-            turningLeft = FALSE;
-            turningRight = FALSE;
-            movingBack = FALSE;
+        if (release == 1){
+            if (current_char == 'w'){
+                movingForward = FALSE;
+            }
+            if (current_char == 'a'){
+                turningLeft = FALSE;
+            }
+            if (current_char == 's'){
+                movingBack = FALSE;
+            }
+            if (current_char == 'd'){
+                turningRight = FALSE;
+            }
         }
     }
     return;
