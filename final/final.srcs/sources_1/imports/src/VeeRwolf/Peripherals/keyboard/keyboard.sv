@@ -105,11 +105,11 @@ module wb_ps2_keyboard (
             // This is the state where the actual key value is 
             // extracted from the data. 
             DECODE: begin
-                if (shift_reg[9:2] == 8'hF0) begin
+                if (shift_reg[8:1] == 8'hF0) begin
                     is_break_code_next = 1'b1; 
                 end else begin
                     // Extract the actuall scancode
-                    key_reg_next       = shift_reg[9:2]; 
+                    key_reg_next       = shift_reg[8:1]; 
                     release_reg_next   = is_break_code; 
                     ready_reg_next     = 1'b1;
                     is_break_code_next = 1'b0; 
