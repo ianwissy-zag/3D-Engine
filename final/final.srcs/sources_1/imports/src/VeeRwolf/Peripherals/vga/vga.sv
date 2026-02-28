@@ -2,30 +2,28 @@ module vga #(
     parameter WIDTH = 640, 
     parameter HEIGHT = 480
 )(
-    // Bram ports
     output logic                    rd_en,
     output logic [16:0]             rd_adr,
     output logic                    bram_inx,
     input  logic [7:0]              data,
 
-    // VGA Ports 
-    input  logic                    clk_vga,    // Pixel Clock
+    input  logic                    clk_vga,    
     input  logic                    rst,
     output logic [3:0]              VGA_Red,
     output logic [3:0]              VGA_Green,
     output logic [3:0]              VGA_Blue,
     output logic                    vsync,
-    output logic                    hsync
+    output logic                    hsync,
+    
+    input  logic                    fcd 
 );
 
-    // DTG wires
     logic        hsync_dtg;
     logic        vsync_dtg;
     logic        px_en_dtg;
     logic [10:0] pixel_row;
     logic [10:0] pixel_col;
 
-    // DTG init
     dtg dgt_instance(
       .clock        (clk_vga),
       .rst          (rst), 
@@ -36,35 +34,41 @@ module vga #(
       .pixel_column (pixel_col)
     );
 
-    // Hardware right shift for pixel doubling 
     logic [8:0] scaled_x; 
     logic [7:0] scaled_y; 
     assign scaled_x = pixel_col[9:1]; 
     assign scaled_y = pixel_row[8:1]; 
     
-    // Mini bram_inx state machine 
+    logic fcd_meta, fcd_sync;
+    
+    always_ff @(posedge clk_vga) begin
+        if (rst) begin
+            fcd_meta <= 1'b0;
+            fcd_sync <= 1'b0;
+        end else begin
+            fcd_meta <= fcd;
+            fcd_sync <= fcd_meta;
+        end
+    end
+    
     always_ff @(posedge clk_vga) begin
         if (rst) begin
             bram_inx <= 0;
-        end
-        if (pixel_col == 0 && pixel_row == 480) begin
+        end else if (pixel_col == 0 && pixel_row == 480 && fcd_sync) begin
             bram_inx <= ~bram_inx;
         end
     end
     
-    // Address calculations
     always_ff @(posedge clk_vga) begin
         if (rst) begin
             rd_adr <= 17'd0;
             rd_en  <= 1'b0;
         end else begin
-            // It is probably not neccessary to be this efficent 
             rd_adr <= ({9'd0, scaled_y} << 8) + ({9'd0, scaled_y} << 6) + {8'd0, scaled_x};
             rd_en  <= px_en_dtg;
         end
     end
 
-    // Delay logic for dtg signals
     logic hsync_d1, hsync_d2;
     logic vsync_d1, vsync_d2;
     logic px_en_d1, px_en_d2;
@@ -86,11 +90,9 @@ module vga #(
         end
     end
 
-    // Output delayed signal
     assign hsync = hsync_d2;
     assign vsync = vsync_d2;
 
-    // Map 8 bit to 12 bit
     logic [3:0] red_mapped;
     logic [3:0] green_mapped;
     logic [3:0] blue_mapped;
@@ -99,7 +101,6 @@ module vga #(
     assign green_mapped = {data[4:2], data[2]};
     assign blue_mapped  = {data[1:0], data[1:0]};
 
-    // Output to VGA
     always_comb begin
         if (px_en_d2) begin
             VGA_Red   = red_mapped;

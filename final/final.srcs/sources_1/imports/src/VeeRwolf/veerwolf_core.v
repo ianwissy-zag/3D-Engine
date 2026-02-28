@@ -461,6 +461,7 @@ module veerwolf_core
    wire gpu_wr_en, gpu_bram_inx;     
    wire [16:0] gpu_adr;
    wire [7:0] gpu_data;
+   wire fcd;
    
    wb_gpu gpu (
    // Wishbone slave interface
@@ -480,7 +481,9 @@ module veerwolf_core
       .bram_inx (gpu_bram_inx),
       .wr_en    (gpu_wr_en),
       .wr_adr   (gpu_adr),
-      .data     (gpu_data)
+      .data     (gpu_data),
+      
+      .fcd      (fcd)
    );
     
     
@@ -502,7 +505,9 @@ module veerwolf_core
       .VGA_Green (VGA_Green),
       .VGA_Blue  (VGA_Blue),
       .vsync     (vsync),
-      .hsync      (hsync)
+      .hsync     (hsync),
+      
+      .fcd      (fcd)
    );
    
    bram vga_bram (
