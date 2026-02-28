@@ -5,6 +5,7 @@ module vga #(
     // Bram ports
     output logic                    rd_en,
     output logic [16:0]             rd_adr,
+    output logic                    bram_inx,
     input  logic [7:0]              data,
 
     // VGA Ports 
@@ -40,9 +41,19 @@ module vga #(
     logic [7:0] scaled_y; 
     assign scaled_x = pixel_col[9:1]; 
     assign scaled_y = pixel_row[8:1]; 
-
+    
+    // Mini bram_inx state machine 
+    always_ff @(posedge clk_vga) begin
+        if (rst) begin
+            bram_inx <= 0;
+        end
+        if (pixel_col == 0 && pixel_row == 480) begin
+            bram_inx <= ~bram_inx;
+        end
+    end
+    
     // Address calculations
-    always_ff @(posedge clk_vga or posedge rst) begin
+    always_ff @(posedge clk_vga) begin
         if (rst) begin
             rd_adr <= 17'd0;
             rd_en  <= 1'b0;
@@ -53,16 +64,16 @@ module vga #(
         end
     end
 
-    // You have to delay data from the dtg or everything is offset one pixel
+    // Delay logic for dtg signals
     logic hsync_d1, hsync_d2;
     logic vsync_d1, vsync_d2;
     logic px_en_d1, px_en_d2;
 
-    always_ff @(posedge clk_vga or posedge rst) begin
+    always_ff @(posedge clk_vga) begin
         if (rst) begin
-            {hsync_d2, hsync_d1} <= 2'b0;
-            {vsync_d2, vsync_d1} <= 2'b0;
-            {px_en_d2, px_en_d1} <= 2'b0;
+            {hsync_d2, hsync_d1} <= '0;
+            {vsync_d2, vsync_d1} <= '0;
+            {px_en_d2, px_en_d1} <= '0;
         end else begin
             hsync_d1 <= hsync_dtg;
             hsync_d2 <= hsync_d1;
@@ -79,7 +90,7 @@ module vga #(
     assign hsync = hsync_d2;
     assign vsync = vsync_d2;
 
-    // Map 8 bit to 12 bit (we may want to do 12 bit internally)
+    // Map 8 bit to 12 bit
     logic [3:0] red_mapped;
     logic [3:0] green_mapped;
     logic [3:0] blue_mapped;
