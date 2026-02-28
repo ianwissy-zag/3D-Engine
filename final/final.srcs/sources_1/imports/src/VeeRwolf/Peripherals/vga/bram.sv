@@ -41,15 +41,18 @@ module bram#(
     (* ram_style = "block" *) 
     logic [DATA_WIDTH-1:0] memory [0:(2*DEPTH)-1];
     
-    always_ff @(posedge vga_clk)begin
-        if (rd_en) begin
-            data_out <= memory[adr_rd + (vga_bram_inx * DEPTH)];
-        end
+    
+    logic [17:0] full_rd_adr, full_wr_adr;
+    assign full_rd_adr = adr_rd + (vga_bram_inx * DEPTH);
+    assign full_wr_adr = adr_wr + (gpu_bram_inx * DEPTH);
+    
+    always_ff @(posedge vga_clk) begin
+        if (rd_en) data_out <= memory[full_rd_adr];
     end
     
     always_ff @(posedge gpu_clk) begin
         if (wr_en) begin
-            memory[adr_wr + (gpu_bram_inx * DEPTH)] <= data_in;
+            memory[full_wr_adr] <= data_in;
         end
     end
     

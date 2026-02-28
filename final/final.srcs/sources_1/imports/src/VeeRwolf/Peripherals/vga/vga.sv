@@ -45,7 +45,7 @@ module vga #(
     // Mini bram_inx state machine 
     always_ff @(posedge clk_vga) begin
         if (rst) begin
-            bram_inx = 0;
+            bram_inx <= 0;
         end
         if (pixel_col == 0 && pixel_row == 480) begin
             bram_inx <= ~bram_inx;
