@@ -6,7 +6,7 @@
 #include "player.h"
 
 
-#define GPU_ADR 0x80001500 
+#define GPU_ADR 0x80001504 
 
 /* Expose the player's true integer state */
 extern fixed32 fpPlayerPosX;

@@ -5,7 +5,8 @@
 #define KB_DATA      0x8000160C
 #define KB_READY     0x80001610
 #define KB_RELEASE   0x80001614
-#define GPU_ADR      0x80001500 
+#define GPU_RD_ADR   0x80001500
+#define GPU_CFD_ADR  0x80001508 
 
 // This function reads the reg at address dir and returns the value.
 inline int READ_REG(int dir){
@@ -85,7 +86,8 @@ void readInputs(){
 void main() {
     initPlayer();
     while(1) {
-        int old_bram_inx = READ_REG(GPU_ADR);
+        WRITE_REG(GPU_CFD_ADR, 0);
+        int old_bram_inx = READ_REG(GPU_RD_ADR);
 
         // character presses
         readInputs();
@@ -96,8 +98,9 @@ void main() {
         /* Update the raycaster */
         updateRaycaster();
 
+        WRITE_REG(GPU_CFD_ADR, 1);
         while(1){
-            int bram_inx = READ_REG(GPU_ADR);
+            int bram_inx = READ_REG(GPU_RD_ADR);
             if (bram_inx != old_bram_inx){
                 break;
             }
