@@ -20,7 +20,7 @@
 
 /* Map constants */
 #define MAP_GRID_WIDTH    10
-#define MAP_GRID_HEIGHT   10
+#define MAP_GRID_HEIGHT   2* 10
 #define MAP_PIXEL_WIDTH   (MAP_GRID_WIDTH * WALL_SIZE)
 #define MAP_PIXEL_HEIGHT  (MAP_GRID_HEIGHT * WALL_SIZE)
 
