@@ -3,9 +3,7 @@
 #include "player.h"
 #include <stdint.h>
 
-#define KB_DATA      0x8000160C
-#define KB_READY     0x80001610
-#define KB_RELEASE   0x80001614
+#define KB_DATA      0x80001600
 #define GPU_RD_ADR   0x80001500
 #define GPU_CFD_ADR  0x80001508 
 #define MTIME_ADR    0x80001020 /* SweRVolf core timer (lower 32 bits) */
@@ -47,41 +45,27 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
 };
 
 /* Program toggles */
-char gameIsRunning    = TRUE;
+char gameIsRunning = TRUE;
 
 void readInputs(){
-    int ready = READ_REG(KB_READY);
-    int release = READ_REG(KB_RELEASE);
-    if (ready == 1) {
-        int current_char = READ_REG(KB_DATA);
-        current_char = scancode_to_ascii[current_char];
-        if (current_char == 'w'){
-            movingForward = TRUE;
-        }
-        if (current_char == 'a'){
-            turningLeft = TRUE;
-        }
-        if (current_char == 's'){
-            movingBack = TRUE;
-        }
-        if (current_char == 'd'){
-            turningRight = TRUE;
-        }
-        if (release == 1){
-            if (current_char == 'w'){
-                movingForward = FALSE;
-            }
-            if (current_char == 'a'){
-                turningLeft = FALSE;
-            }
-            if (current_char == 's'){
-                movingBack = FALSE;
-            }
-            if (current_char == 'd'){
-                turningRight = FALSE;
-            }
-        }
+    int wasd_data = READ_REG(KB_DATA);
+    if ((wasd_data >> 3) & 0x1) {
+        movingForward = TRUE;
     }
+    else movingForward = FALSE;
+    if ((wasd_data >> 2) & 0x1) {
+        turningLeft = TRUE;
+    }
+    else turningLeft = FALSE;
+    if ((wasd_data >> 1) & 0x1) {
+        movingBack = TRUE;
+    }
+    else movingBack = FALSE;
+    if (wasd_data & 0x1) {
+        turningRight = TRUE;
+    }
+    else turningRight = FALSE;
+        
     return;
 }
 
