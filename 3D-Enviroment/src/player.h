@@ -21,16 +21,16 @@ typedef int32_t fixed32;
  * Initialize the player.
  */
 void initPlayer();
-/*
-* Rotate the player one step in the given direciton
-*/
 
-void rotatePlayer(int direction);
+/*
+* Rotate the player one step in the given direction scaled by delta time
+*/
+void rotatePlayer(int direction, fixed32 dt_mult);
 
 /**
- * Update the player for the current frame.
+ * Update the player for the current frame scaled by delta time.
  */
-void updatePlayer();
+void updatePlayer(fixed32 dt_mult);
 
 /**
  * Move the player by a given movement vector.

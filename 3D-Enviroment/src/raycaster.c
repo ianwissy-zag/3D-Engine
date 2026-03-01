@@ -29,15 +29,6 @@ inline void WRITE_REG(int dir, int value){
 }
 
 void run_integer_raycast() {
-    // Load the lookup table for x positions 
-    if (!lut_initialized) {
-        for (int x = 0; x < VIEWPLANE_LENGTH; x++) {
-            // Map x coordinate to range [-1, 1] in fixed-point
-            cameraX_LUT[x] = IDIV(TO_FP(2 * x), TO_FP(VIEWPLANE_LENGTH)) - TO_FP(1);
-        }
-        lut_initialized = 1;
-    }
-
     // 2. Convert world coords to map coords using bitwise shift instead of division
     fixed32 posX = fpPlayerPosX >> WALL_SHIFT;
     fixed32 posY = fpPlayerPosY >> WALL_SHIFT;
@@ -48,25 +39,28 @@ void run_integer_raycast() {
     fixed32 planeX = IMUL(-dirY, FOV_TAN_CONST);
     fixed32 planeY = IMUL(dirX, FOV_TAN_CONST);
 
+    fixed32 rayDirX = dirX - planeX; 
+    fixed32 rayDirY = dirY - planeY;
+    
+    fixed32 stepCameraX = IDIV(TO_FP(2), TO_FP(VIEWPLANE_LENGTH)); 
+    fixed32 stepDirX = IMUL(planeX, stepCameraX);
+    fixed32 stepDirY = IMUL(planeY, stepCameraX);
+
     // 3. The Raycasting Loop
     for (int x = 0; x < VIEWPLANE_LENGTH; x++) {
-        fixed32 cameraX = cameraX_LUT[x]; // Fetch from LUT
-        
-        fixed32 rayDirX = dirX + IMUL(planeX, cameraX);
-        fixed32 rayDirY = dirY + IMUL(planeY, cameraX);
-
         int mapX = (int)(posX >> FP_SHIFT);
         int mapY = (int)(posY >> FP_SHIFT);
 
-        // Safe "infinity" to prevent integer overflow in DDA
-        fixed32 MAX_DIST = 1 << 30; 
+        // Safe infinity (1<<24 is 256 map blocks).
+        fixed32 MAX_DIST = 1 << 24; 
         
-        fixed32 deltaDistX = (rayDirX == 0) ? MAX_DIST : IABS(IDIV(TO_FP(1), rayDirX));
-        fixed32 deltaDistY = (rayDirY == 0) ? MAX_DIST : IABS(IDIV(TO_FP(1), rayDirY));
+        // Epsilon check (<= 64) prevents 32-bit integer overflow when rayDir crosses 0
+        fixed32 deltaDistX = (IABS(rayDirX) <= 64) ? MAX_DIST : IABS(IDIV(TO_FP(1), rayDirX));
+        fixed32 deltaDistY = (IABS(rayDirY) <= 64) ? MAX_DIST : IABS(IDIV(TO_FP(1), rayDirY));
 
         fixed32 sideDistX, sideDistY;
         int stepX, stepY;
-        int hit = 0, side = 0;
+        int side = 0;
 
         if (rayDirX < 0) {
             stepX = -1;
@@ -84,7 +78,7 @@ void run_integer_raycast() {
         }
 
         // --- The DDA Loop ---
-        while (hit == 0) {
+        while (1) {
             if (sideDistX < sideDistY) {
                 sideDistX += deltaDistX;
                 mapX += stepX;
@@ -94,28 +88,21 @@ void run_integer_raycast() {
                 mapY += stepY;
                 side = 1;
             }
-            // Bounds check
-            if (mapX >= 0 && mapX < MAP_GRID_WIDTH && mapY >= 0 && mapY < MAP_GRID_HEIGHT) {
-                if (MAP[mapY][mapX] > 0) hit = 1;
-            } else { 
-                hit = 1; 
-            }
+            if (MAP[mapY][mapX] > 0) break;
         }
 
         // --- Distance Calculation ---
+        // Back to the fast subtraction method now that deltaDist is mathematically stable
         fixed32 perpWallDist;
         if (side == 0) {
-            fixed32 diff = TO_FP(mapX) - posX + (stepX == 1 ? 0 : TO_FP(1));
-            perpWallDist = IDIV(diff, rayDirX);
+            perpWallDist = sideDistX - deltaDistX;
         } else {
-            fixed32 diff = TO_FP(mapY) - posY + (stepY == 1 ? 0 : TO_FP(1));
-            perpWallDist = IDIV(diff, rayDirY);
+            perpWallDist = sideDistY - deltaDistY;
         }
 
         if (perpWallDist <= 0) perpWallDist = 1;
 
         // Write to the GPU
-        
         int height = (240 << FP_SHIFT) / perpWallDist;
         
         // Clamp height to 8-bit max (More than we need)
@@ -141,6 +128,9 @@ void run_integer_raycast() {
 
         // 4. Write to GPU
         WRITE_REG(GPU_ADR, wb_data);
+
+        rayDirX += stepDirX;
+        rayDirY += stepDirY;
     }
 }
 

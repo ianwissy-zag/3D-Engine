@@ -15,7 +15,8 @@
 #define TEXTURE_SIZE           64
 #define WALL_SIZE              64
 #define PLAYER_SIZE            20
-#define PLAYER_MOVEMENT_SPEED  5
+#define PLAYER_MOVEMENT_SPEED  3
+#define ROT_SPEED_INT          1
 
 /* Map constants */
 #define MAP_GRID_WIDTH    10
