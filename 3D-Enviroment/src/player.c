@@ -26,6 +26,7 @@ extern const int32_t COS_LUT[];
 /* Internal fixed-point state */
 fixed32 fpPlayerPosX;
 fixed32 fpPlayerPosY;
+fixed32 fpPlayerAngle;
 uint8_t playerAngleIndex = 0; 
 
 /* Toggles */
@@ -34,11 +35,12 @@ char movingBack       = FALSE;
 char turningLeft      = FALSE;
 char turningRight     = FALSE;
 
-#define ROT_SPEED_INT 2 
-
-
-void rotatePlayer(int direction) {
-    playerAngleIndex += (direction * ROT_SPEED_INT);
+void rotatePlayer(int direction, fixed32 dt_mult) {
+    fixed32 fp_rot_speed = TO_FP(ROT_SPEED_INT);
+    fixed32 rot_amt = MUL_FP(fp_rot_speed, dt_mult) * direction;
+    fpPlayerAngle += rot_amt;
+    
+    playerAngleIndex = (uint8_t)FROM_FP(fpPlayerAngle);
 }
 
 int clipMovement(fixed32 dx, fixed32 dy) {
@@ -81,8 +83,8 @@ void movePlayer(fixed32 dx, fixed32 dy) {
     }
 }
 
-void updatePlayer() {
-    fixed32 moveSpeed = PLAYER_MOVEMENT_SPEED_FP; 
+void updatePlayer(fixed32 dt_mult) {
+    fixed32 moveSpeed = MUL_FP(PLAYER_MOVEMENT_SPEED_FP, dt_mult); 
 
     fixed32 dirX = COS_LUT[playerAngleIndex];
     fixed32 dirY = SIN_LUT[playerAngleIndex];
@@ -97,13 +99,12 @@ void updatePlayer() {
     int turnSpeed = 1;
     
     if(turningLeft) {
-        rotatePlayer(-turnSpeed);
+        rotatePlayer(-turnSpeed, dt_mult);
     } 
     if(turningRight) {
-        rotatePlayer(turnSpeed);
+        rotatePlayer(turnSpeed, dt_mult);
     }
 }
-
 
 void initPlayer() {
     int row, col;
@@ -114,6 +115,7 @@ void initPlayer() {
                 // Initialize internal fixed-point position
                 fpPlayerPosX = TO_FP((WALL_SIZE * col) + (WALL_SIZE / 2));
                 fpPlayerPosY = TO_FP((WALL_SIZE * row) + (WALL_SIZE / 2));
+                fpPlayerAngle = TO_FP(playerAngleIndex);
                 return;
             }
         }

@@ -1,21 +1,26 @@
 #include "config.h"
 #include "raycaster.h"
 #include "player.h"
+#include <stdint.h>
 
 #define KB_DATA      0x8000160C
 #define KB_READY     0x80001610
 #define KB_RELEASE   0x80001614
-#define GPU_ADR      0x80001500 
+#define GPU_RD_ADR   0x80001500
+#define GPU_CFD_ADR  0x80001508 
+#define MTIME_ADR    0x80001020 /* SweRVolf core timer (lower 32 bits) */
 
-// This function reads the reg at address dir and returns the value.
 inline int READ_REG(int dir){
     return (*(volatile unsigned *)dir);
 }
 
-// This function writes the value "value" to address "dir" and returns nothing.
 inline void WRITE_REG(int dir, int value){
     (*(volatile unsigned *)dir) = (value);
     return;
+}
+
+static inline uint32_t get_time() {
+    return READ_REG(MTIME_ADR);
 }
 
 const char scancode_to_ascii[] = {
@@ -27,7 +32,6 @@ const char scancode_to_ascii[] = {
     0, 0, '\'', 0, '[', '=', 0, 0, 0, 0, '\n', ']', 0, '\\', 0, 0,        // 50-5F
     0, 0, 0, 0, 0, 0, 0x08, 0, 0, 0, 0, 0, 0, 0, 0, 0      // 60-6F (0x66 is Backspace)
 };
-
 
 const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
     {R,R,R,R,R,R,R,R,R,R},
@@ -41,7 +45,6 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
     {R,R,0,0,0,0,0,0,R,R},
     {R,R,R,R,R,R,R,R,R,R}
 };
-
 
 /* Program toggles */
 char gameIsRunning    = TRUE;
@@ -84,20 +87,28 @@ void readInputs(){
 
 void main() {
     initPlayer();
-    while(1) {
-        int old_bram_inx = READ_REG(GPU_ADR);
+    uint32_t last_time = get_time();
 
-        // character presses
+    while(1) {
+        uint32_t current_time = get_time();
+        uint32_t delta_time = current_time - last_time;
+        last_time = current_time;
+
+        // Multiply by 161 and shift right by 9 to approximate (delta_time * 65536) / 208333
+        fixed32 dt_mult = (delta_time * 161) >> 9;
+
+        WRITE_REG(GPU_CFD_ADR, 0);
+        int old_bram_inx = READ_REG(GPU_RD_ADR);
+
         readInputs();
 
-        /* Update the player */
-        updatePlayer();
+        updatePlayer(dt_mult);
 
-        /* Update the raycaster */
         updateRaycaster();
 
+        WRITE_REG(GPU_CFD_ADR, 1);
         while(1){
-            int bram_inx = READ_REG(GPU_ADR);
+            int bram_inx = READ_REG(GPU_RD_ADR);
             if (bram_inx != old_bram_inx){
                 break;
             }
