@@ -290,29 +290,31 @@ module wb_gpu #(
     
     // Optional: track opcode
     logic [3:0]  cmd_opcode;
+
+    logic sample_fifo_data;
     
     // If you plan to do multi-word commands (LINE_A/LINE_B), add a small staging state
     typedef enum logic [1:0] {CMD_IDLE, CMD_POP, CMD_LATCH} cmd_state_t;
     cmd_state_t cmd_state;
 
+    assign sample_fifo_data = prim_mode_en_gpu && !cmd_fifo_empty;
+    assign cmd_fifo_rd_en = sample_fifo_data && (cmd_state == CMD_IDLE); // request pop
+
     always_ff @(posedge gpu_clk) begin
        if (gpu_rst) begin
-         cmd_fifo_rd_en <= 1'b0;
          cmd_state      <= CMD_IDLE;
          cmd_valid      <= 1'b0;
          cmd_word       <= 32'b0;
          cmd_opcode     <= 4'h0;
        end else begin
          // defaults
-         cmd_fifo_rd_en <= 1'b0;
          cmd_valid      <= 1'b0;
      
          case (cmd_state)
            CMD_IDLE: begin
              // Only drain when primitive mode enabled AND fifo has data
              // prim_mode_en is currently WB-domain; you should sync it into gpu_clk domain first.
-             if (prim_mode_en_gpu && !cmd_fifo_empty) begin
-               cmd_fifo_rd_en <= 1'b1;      // request pop
+             if (sample_fifo_data) begin
                cmd_state      <= CMD_LATCH; // latch next cycle
              end
            end
