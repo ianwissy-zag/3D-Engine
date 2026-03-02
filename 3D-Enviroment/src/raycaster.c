@@ -5,56 +5,46 @@
 #include "raycaster.h"
 #include "player.h"
 
-
 #define GPU_ADR 0x80001504 
 
-/* Expose the player's true integer state */
 extern fixed32 fpPlayerPosX;
 extern fixed32 fpPlayerPosY;
 extern uint8_t playerAngleIndex;
 
-// Camera x position lookup table [-1, 1] in fixed-point
 fixed32 cameraX_LUT[VIEWPLANE_LENGTH];
 char lut_initialized = 0;
 
-// This function reads the reg at address dir and returns the value.
-inline int READ_REG(int dir){
-    return (*(volatile unsigned *)dir);
+inline int READ_REG(int dir) {
+    return (*(volatile unsigned*)dir);
 }
 
-// This function writes the value "value" to address "dir" and returns nothing.
-inline void WRITE_REG(int dir, int value){
-    (*(volatile unsigned *)dir) = (value);
-    return;
+inline void WRITE_REG(int dir, int value) {
+    (*(volatile unsigned*)dir) = (value);
 }
 
 void run_integer_raycast() {
-    // 2. Convert world coords to map coords using bitwise shift instead of division
     fixed32 posX = fpPlayerPosX >> WALL_SHIFT;
     fixed32 posY = fpPlayerPosY >> WALL_SHIFT;
-    
+
     fixed32 dirX = COS_LUT[playerAngleIndex];
     fixed32 dirY = SIN_LUT[playerAngleIndex];
 
     fixed32 planeX = IMUL(-dirY, FOV_TAN_CONST);
     fixed32 planeY = IMUL(dirX, FOV_TAN_CONST);
 
-    fixed32 rayDirX = dirX - planeX; 
+    fixed32 rayDirX = dirX - planeX;
     fixed32 rayDirY = dirY - planeY;
-    
-    fixed32 stepCameraX = IDIV(TO_FP(2), TO_FP(VIEWPLANE_LENGTH)); 
+
+    fixed32 stepCameraX = IDIV(TO_FP(2), TO_FP(VIEWPLANE_LENGTH));
     fixed32 stepDirX = IMUL(planeX, stepCameraX);
     fixed32 stepDirY = IMUL(planeY, stepCameraX);
 
-    // 3. The Raycasting Loop
     for (int x = 0; x < VIEWPLANE_LENGTH; x++) {
         int mapX = (int)(posX >> FP_SHIFT);
         int mapY = (int)(posY >> FP_SHIFT);
 
-        // Safe infinity (1<<24 is 256 map blocks).
-        fixed32 MAX_DIST = 1 << 24; 
-        
-        // Epsilon check (<= 64) prevents 32-bit integer overflow when rayDir crosses 0
+        fixed32 MAX_DIST = 1 << 24;
+
         fixed32 deltaDistX = (IABS(rayDirX) <= 64) ? MAX_DIST : IABS(IDIV(TO_FP(1), rayDirX));
         fixed32 deltaDistY = (IABS(rayDirY) <= 64) ? MAX_DIST : IABS(IDIV(TO_FP(1), rayDirY));
 
@@ -65,25 +55,27 @@ void run_integer_raycast() {
         if (rayDirX < 0) {
             stepX = -1;
             sideDistX = IMUL((posX - TO_FP(mapX)), deltaDistX);
-        } else {
+        }
+        else {
             stepX = 1;
             sideDistX = IMUL((TO_FP(mapX + 1) - posX), deltaDistX);
         }
         if (rayDirY < 0) {
             stepY = -1;
             sideDistY = IMUL((posY - TO_FP(mapY)), deltaDistY);
-        } else {
+        }
+        else {
             stepY = 1;
             sideDistY = IMUL((TO_FP(mapY + 1) - posY), deltaDistY);
         }
 
-        // --- The DDA Loop ---
         while (1) {
             if (sideDistX < sideDistY) {
                 sideDistX += deltaDistX;
                 mapX += stepX;
                 side = 0;
-            } else {
+            }
+            else {
                 sideDistY += deltaDistY;
                 mapY += stepY;
                 side = 1;
@@ -91,42 +83,30 @@ void run_integer_raycast() {
             if (MAP[mapY][mapX] > 0) break;
         }
 
-        // --- Distance Calculation ---
-        // Back to the fast subtraction method now that deltaDist is mathematically stable
         fixed32 perpWallDist;
-        if (side == 0) {
-            perpWallDist = sideDistX - deltaDistX;
-        } else {
-            perpWallDist = sideDistY - deltaDistY;
-        }
+        if (side == 0) perpWallDist = sideDistX - deltaDistX;
+        else           perpWallDist = sideDistY - deltaDistY;
 
         if (perpWallDist <= 0) perpWallDist = 1;
 
-        // Write to the GPU
         int height = (240 << FP_SHIFT) / perpWallDist;
-        
-        // Clamp height to 8-bit max (More than we need)
         if (height > 255) height = 255;
         if (height < 0) height = 0;
 
-        // 2. Determine 8-bit color based on wall orientation
-        uint8_t color;
-        if (side == 0) {
-            // Hit an X-axis boundary (East/West wall)
-            color = 0xE0; 
-        } else {
-            // Hit a Y-axis boundary (North/South wall)
-            color = 0x03; 
+        // Calculate exact wall collision point
+        fixed32 wallX = (side == 0) ? (posY + IMUL(perpWallDist, rayDirY)) : (posX + IMUL(perpWallDist, rayDirX));
+
+        // Extract fractional part & scale to 128 (assuming FP_SHIFT is 16: 16 - 7 = 9)
+        uint8_t texX = (wallX >> (FP_SHIFT - 7)) & 0x7F;
+
+        // Flip texture horizontally depending on face normal
+        if ((side == 0 && rayDirX > 0) || (side == 1 && rayDirY < 0)) {
+            texX = 127 - texX;
         }
 
-        // 3. Pack data according to Wishbone module mapping:
-        // [24:17] height | [16:9] color | [8:0] pixel_column
-        uint32_t wb_data = 0;
-        wb_data |= (x & 0x1FF);               // 9 bits for column
-        wb_data |= (color & 0xFF) << 9;       // 8 bits for color
-        wb_data |= (height & 0xFF) << 17;     // 8 bits for height
+        // Pack data: [24:17] height | [16:9] texX | [8:0] pixel_column
+        uint32_t wb_data = (x & 0x1FF) | ((texX & 0xFF) << 9) | ((height & 0xFF) << 17);
 
-        // 4. Write to GPU
         WRITE_REG(GPU_ADR, wb_data);
 
         rayDirX += stepDirX;
