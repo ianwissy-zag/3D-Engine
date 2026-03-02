@@ -36,12 +36,9 @@ module wb_gpu #(
         else          wb_ack_o <= wb_valid_cycle && !wb_ack_o;
     end
     
-    // ---------------------------------------------------------
-    // 1. WIDENED HEIGHT REGISTERS (10-bit)
-    // ---------------------------------------------------------
     logic [8:0] pixel_column;
     logic [7:0] texX; 
-    logic [9:0] height;         // Updated to 10 bits
+    logic [9:0] height;         
     logic       wb_write_toggle;
     
     always_ff @(posedge wb_clk_i) begin
@@ -56,7 +53,7 @@ module wb_gpu #(
                 4'h1: begin
                     pixel_column    <= wb_dat_i[8:0];
                     texX            <= wb_dat_i[16:9];
-                    height          <= wb_dat_i[26:17]; // Now grabs 10 bits!
+                    height          <= wb_dat_i[26:17];
                     wb_write_toggle <= ~wb_write_toggle; 
                 end
                 4'h2: fcd <= wb_dat_i[0];
@@ -84,12 +81,10 @@ module wb_gpu #(
         end
     end
 
-    // ---------------------------------------------------------
-    // 2. WIDENED GPU DOMAIN REGISTERS (10-bit)
-    // ---------------------------------------------------------
+    // ---------------- Clock domain crossing WB-GPU ---------------
     logic [8:0] gpu_column, gpu_column_meta;
     logic [7:0] gpu_texX,   gpu_texX_meta;
-    logic [9:0] gpu_height, gpu_height_meta; // Updated to 10 bits
+    logic [9:0] gpu_height, gpu_height_meta; 
     logic       gpu_toggle, gpu_toggle_meta, gpu_toggle_d1;
     logic       new_data_pulse;
     
@@ -106,17 +101,16 @@ module wb_gpu #(
         gpu_toggle_d1 <= gpu_toggle;
     end  
     assign new_data_pulse = gpu_toggle ^ gpu_toggle_d1;
-
+    
+    // ------------- Texture file --------------------
     logic [7:0] tex_rom [0:16383];
     logic [7:0] tex_data;
 
     initial begin
-        $readmemh("concrete_rgb332_128x128.mem", tex_rom);
+        $readmemh("brick_128x128.mem", tex_rom);
     end
 
-    // ---------------------------------------------------------
-    // 3. COMPILE-TIME GENERATED 1024-ELEMENT LUT
-    // ---------------------------------------------------------
+    // -------- LUT FOR DIVISION ---------------------
     logic [15:0] STEP_LUT [0:1023];
 
     initial begin
@@ -125,15 +119,14 @@ module wb_gpu #(
             STEP_LUT[i] = 16'd32768 / i;
         end
     end
-
+    
+    // --------- Column drawing state machine --------
     typedef enum logic {IDLE, DRAW} state_t;
     state_t current_state;
 
-    // ---------------------------------------------------------
-    // 4. WIDENED BOUNDARY REGISTERS (10-bit)
-    // ---------------------------------------------------------
+    
     logic [7:0]  y_cnt;
-    logic [9:0]  wall_top, wall_bottom; // Updated to 10 bits
+    logic [9:0]  wall_top, wall_bottom; 
     logic [15:0] tex_step, texY_fixed;
 
     logic        valid_s1, is_wall_s1;
@@ -143,13 +136,13 @@ module wb_gpu #(
 
     logic        valid_s2, is_wall_s2;
     logic [7:0]  y_s2; 
-    logic [9:0]  wall_top_s2;           // Updated to 10 bits
+    logic [9:0]  wall_top_s2;           
     logic [16:0] wr_adr_s2;
     logic [13:0] tex_adr_s2;
 
     logic        valid_s3, is_wall_s3;
     logic [7:0]  y_s3;
-    logic [9:0]  wall_top_s3;           // Updated to 10 bits
+    logic [9:0]  wall_top_s3;          
     logic [16:0] wr_adr_s3;
 
     always_ff @(posedge gpu_clk) begin
@@ -181,7 +174,6 @@ module wb_gpu #(
                     y_s1       <= y_cnt;
                     wr_adr_s1  <= (y_cnt * SCREEN_WIDTH) + gpu_column;
                     
-                    // Implicit 0-padding of y_cnt (8-bit) against wall boundaries (10-bit) works perfectly here
                     is_wall_s1 <= (y_cnt >= wall_top) && (y_cnt <= wall_bottom);
                     texY_s1    <= texY_fixed[14:8];
 
