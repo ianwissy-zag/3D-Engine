@@ -462,9 +462,21 @@ module veerwolf_core
    wire [16:0] gpu_adr;
    wire [7:0] gpu_data;
    wire fcd;
+   wire [8:0] pixel_column;
+   wire [7:0] column_color;
+   wire [7:0] column_height;
+   wire       wb_write_toggle;
+   wire        cmd_fifo_empty;
+   wire        cmd_fifo_full;
+   wire        overlay_en;
+   wire        prim_mode_en;
+   wire [31:0] cmd_fifo_wr_data;
+   wire        cmd_fifo_wr_en;
+   wire [31:0] cmd_fifo_rd_data;
+   wire        cmd_fifo_rd_en;
    
-   wb_gpu gpu (
-   // Wishbone slave interface
+   wb_interface wb_iface_to_gpu (
+      // Wishbone Bus Connections
       .wb_clk_i  (clk),
       .wb_rst_i  (wb_rst),
       .wb_adr_i  (wb_m2s_vga_adr[5:2]),
@@ -475,15 +487,56 @@ module veerwolf_core
       .wb_stb_i  (wb_m2s_vga_stb),
       .wb_dat_o  (wb_s2m_vga_dat),
       .wb_ack_o  (wb_s2m_vga_ack),
-      
+      // VGA Frame Buffer Index Register (0x00)
+      .bram_inx  (gpu_bram_inx),
+      // Column Drawing Registers (0x04)
+      .pixel_column (pixel_column),
+      .column_color (column_color),
+      .column_height (column_height),
+      .wb_write_toggle (wb_write_toggle),
+      // Frame Calculation Done Register (0x08)
+      .fcd (fcd),
+      // GPU Status Registers (0x0C)
+      .cmd_fifo_empty (cmd_fifo_empty),
+      .cmd_fifo_full  (cmd_fifo_full),
+      .busy (1'b0), // Not used as for now
+      // GPU Control Registers (0x10)
+      .overlay_en (overlay_en),
+      .prim_mode_en (prim_mode_en),
+      // GPU Command Register (0x14)
+      .cmd_fifo_wr_data (cmd_fifo_wr_data),
+      .cmd_fifo_wr_en (cmd_fifo_wr_en)
+   );
+  
+   async_fifo #(.WIDTH(32), .DEPTH(64)) u_cmd_fifo (
+      .wr_clk  (clk),
+      .wr_rst  (wb_rst),
+      .wr_en   (cmd_fifo_wr_en),
+      .wr_data (cmd_fifo_wr_data),
+      .wr_full (cmd_fifo_full),
+
+      .rd_clk  (clk_gpu),
+      .rd_rst  (rst_gpu),
+      .rd_en   (cmd_fifo_rd_en),
+      .rd_data (cmd_fifo_rd_data),
+      .rd_empty(cmd_fifo_empty)
+  );
+
+   wb_gpu gpu (
       .gpu_clk  (clk_gpu),
       .gpu_rst  (rst_gpu),
-      .bram_inx (gpu_bram_inx),
+      .pixel_column (pixel_column),
+      .color (column_color),
+      .height (column_height),
+      .write_toggle (wb_write_toggle),
+      .cmd_fifo_empty (cmd_fifo_empty),
+      .cmd_fifo_rd_data (cmd_fifo_rd_data),
+      .cmd_fifo_rd_en (cmd_fifo_rd_en),
+      .overlay_en (overlay_en),
+      .prim_mode_en (prim_mode_en),
       .wr_en    (gpu_wr_en),
       .wr_adr   (gpu_adr),
-      .data     (gpu_data),
-      
-      .fcd      (fcd)
+      .data     (gpu_data)
    );
     
     

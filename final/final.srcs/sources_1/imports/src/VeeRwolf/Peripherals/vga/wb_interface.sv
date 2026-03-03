@@ -12,7 +12,7 @@ module wb_interface (
     output logic                wb_ack_o,
 
     // VGA Frame Buffer Index Register (0x00)
-    input logic                 wb_bram_inx_sync,
+    input logic                 bram_inx,
 
     // Column Drawing Registers (0x04)
     output logic [8:0]          pixel_column,
@@ -24,7 +24,6 @@ module wb_interface (
     output logic                fcd,
 
     // GPU Status Registers (0x0C)
-    output logic                cmd_overflow_sticky,
     input  logic                cmd_fifo_empty,
     input  logic                cmd_fifo_full,
     input  logic                busy,
@@ -38,7 +37,9 @@ module wb_interface (
     // GPU Command Register (0x14)
     output logic [31:0]         cmd_fifo_wr_data,
     output logic                cmd_fifo_wr_en
-)
+);
+
+logic  wb_bram_inx_sync;
 
 // Wishbone Bus Control Logic
 assign wb_valid_cycle = wb_cyc_i && wb_stb_i;
@@ -51,6 +52,9 @@ always_ff @(posedge wb_clk_i) begin
     else          
         wb_ack_o <= wb_valid_cycle && !wb_ack_o;
 end
+
+logic cmd_overflow_sticky;
+logic cmd_fifo_empty_sync;
 
 // Register Write Control
 always_ff @(posedge wb_clk_i) begin
@@ -72,6 +76,9 @@ always_ff @(posedge wb_clk_i) begin
         cmd_fifo_wr_data <= '0;
     end
     else if (wb_write_en) begin
+	// DEFAULTS every cycle
+        cmd_fifo_wr_en <= 1'b0;
+
         case (wb_adr_i)
             // 0x00: VGA Frame Buffer Index Register
             // Nothing to write to here...
@@ -148,10 +155,10 @@ always_ff @(posedge wb_clk_i) begin
             4'h3: wb_dat_o <= {
                 28'b0,
                 cmd_overflow_sticky,
-                cmd_fifo_empty,
+                cmd_fifo_empty_sync,
                 cmd_fifo_full,
                 busy
-            }
+            };
 
             // 0x10: GPU Control Register
             4'h4: begin
@@ -173,6 +180,30 @@ always_ff @(posedge wb_clk_i) begin
     else begin
         wb_dat_o <= '0;
     end
+end
+
+logic wb_bram_inx_meta;
+
+always_ff @(posedge wb_clk_i) begin
+    if (wb_rst_i) begin
+        wb_bram_inx_meta <= 1'b0;
+        wb_bram_inx_sync <= 1'b0;
+    end else begin
+        wb_bram_inx_meta <= bram_inx;
+        wb_bram_inx_sync <= wb_bram_inx_meta;
+    end
+end
+
+logic cmd_fifo_empty_meta;
+
+always_ff @(posedge wb_clk_i) begin
+  if (wb_rst_i) begin
+    cmd_fifo_empty_meta <= 1'b1;
+    cmd_fifo_empty_sync <= 1'b1;
+  end else begin
+    cmd_fifo_empty_meta <= cmd_fifo_empty;
+    cmd_fifo_empty_sync <= cmd_fifo_empty_meta;
+  end
 end
 
 endmodule
