@@ -7,6 +7,9 @@
  * @date 3/2/2026
  */
 
+#ifndef VGA_3D_H
+#define VGA_3D_H
+
 #include <stdint.h>
 
 /* VGA GPU Defines */
@@ -64,3 +67,5 @@ typedef struct {
 /* Function Declarations */
 void new_frame();
 void draw_triangle(triangle_t tri, uint8_t color);
+
+#endif
