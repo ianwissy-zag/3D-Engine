@@ -2,7 +2,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 WIDTH = 320
 HEIGHT = 240
-FILENAME = "image.mem"
+FILENAME = "icon.mem"
 
 # Create a pure black canvas
 img = Image.new("RGB", (WIDTH, HEIGHT), "black")
@@ -24,7 +24,7 @@ draw.rectangle([start_x, start_y, end_x, end_y], fill="white")
 font = ImageFont.load_default()
 
 # The text we want to draw
-lines = ["540", "IN", "3D"]
+lines = ["ECE", "IN", "3D"]
 
 # Calculate text block height to center it vertically
 line_spacing = 4
