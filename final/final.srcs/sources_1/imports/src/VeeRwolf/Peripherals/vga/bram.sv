@@ -38,7 +38,7 @@ module bram#(
         end
     end
     
-    (* ram_style = "block" *) 
+    (* ram_style = "block", cascade_height = 1 *) 
     logic [DATA_WIDTH-1:0] memory [0:(2*DEPTH)-1];
     
     
@@ -57,6 +57,6 @@ module bram#(
     end
     
     initial begin
-        $readmemh("image.mem", memory);
+        $readmemh("icon.mem", memory);
     end
 endmodule

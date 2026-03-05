@@ -11,6 +11,10 @@ extern fixed32 fpPlayerPosX;
 extern fixed32 fpPlayerPosY;
 extern uint8_t playerAngleIndex;
 
+// --- Added Global Distance Array ---
+fixed32 wallDistanceArray[VIEWPLANE_LENGTH];
+// ------------------------------------
+
 fixed32 cameraX_LUT[VIEWPLANE_LENGTH];
 char lut_initialized = 0;
 
@@ -89,25 +93,21 @@ void run_integer_raycast() {
 
         if (perpWallDist <= 0) perpWallDist = 1;
 
+        // Store the distance in the global array for this column
+        wallDistanceArray[x] = perpWallDist;
+
         int height = (240 << FP_SHIFT) / perpWallDist;
-        
-        // Clamp max height to 1024 so that walls can extend above/below frame fortextures.
+
         if (height > 1023) height = 1023;
         if (height < 0) height = 0;
 
-        // Calculate exact wall collision point
         fixed32 wallX = (side == 0) ? (posY + IMUL(perpWallDist, rayDirY)) : (posX + IMUL(perpWallDist, rayDirX));
-
-        // Extract fractional part & scale to 128 
         uint8_t texX = (wallX >> (FP_SHIFT - 7)) & 0x7F;
 
-        // Flip texture horizontally depending on face normal
         if ((side == 0 && rayDirX > 0) || (side == 1 && rayDirY < 0)) {
             texX = 127 - texX;
         }
 
-        // Pack data: [26:17] height | [16:9] texX | [8:0] pixel_column
-        // Changed height mask from 0xFF to 0x3FF to allow 10 bits
         uint32_t wb_data = (x & 0x1FF) | ((texX & 0xFF) << 9) | ((height & 0x3FF) << 17);
 
         WRITE_REG(GPU_ADR, wb_data);
@@ -116,7 +116,6 @@ void run_integer_raycast() {
         rayDirY += stepDirY;
     }
 }
-
 void updateRaycaster() {
     run_integer_raycast();
 }

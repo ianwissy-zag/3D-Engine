@@ -463,6 +463,10 @@ module veerwolf_core
    wire [7:0] gpu_data;
    wire fcd;
    
+   wire z_we;
+   wire [8:0] z_adr;
+   wire [9:0] z_data;
+   
    wb_gpu gpu (
    // Wishbone slave interface
       .wb_clk_i  (clk),
@@ -476,6 +480,10 @@ module veerwolf_core
       .wb_dat_o  (wb_s2m_vga_dat),
       .wb_ack_o  (wb_s2m_vga_ack),
       
+      .height_we    (z_we),
+      .height_adr   (z_adr),
+      .height_data  (z_data),
+      
       .gpu_clk  (clk_gpu),
       .gpu_rst  (rst_gpu),
       .bram_inx (gpu_bram_inx),
@@ -484,6 +492,16 @@ module veerwolf_core
       .data     (gpu_data),
       
       .fcd      (fcd)
+   );
+    
+   
+   // Column height bram
+   z_bram height_bram (
+   .clk     (clk_gpu),
+   
+   .we      (z_we),
+   .wr_data (z_data),
+   .wr_adr  (z_adr)
    );
     
     
