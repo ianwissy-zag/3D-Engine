@@ -20,11 +20,27 @@ end_y   = center_y + (SQUARE_SIZE // 2)
 
 draw.rectangle([start_x, start_y, end_x, end_y], fill="white")
 
-# Load the default PIL font
-font = ImageFont.load_default()
+# --- MODIFIED FONT LOADING ---
+# Load a TrueType font so we can double the size (approx size 22).
+font_size = 22
+try:
+    # Tries to load standard Arial (Windows/Mac)
+    font = ImageFont.truetype("arial.ttf", font_size)
+except IOError:
+    try:
+        # Fallback for standard Linux systems
+        font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+    except IOError:
+        # Fallback for newer Pillow versions that allow default font scaling
+        try:
+            font = ImageFont.load_default(size=font_size)
+        except TypeError:
+            print("Warning: Could not find scalable font. Text size may not change.")
+            font = ImageFont.load_default()
+# -----------------------------
 
 # The text we want to draw
-lines = ["ECE", "IN", "3D"]
+lines = ["ECE", "IN", "3D!"]
 
 # Calculate text block height to center it vertically
 line_spacing = 4
@@ -62,4 +78,4 @@ with open(FILENAME, 'w') as f:
             
             f.write(f"{pixel_val:02X}\n")
 
-print(f"Successfully generated {FILENAME} with red text.")
+print(f"Successfully generated {FILENAME} with double-sized red text.")
