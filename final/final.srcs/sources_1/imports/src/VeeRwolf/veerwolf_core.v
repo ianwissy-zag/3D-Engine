@@ -461,6 +461,7 @@ module veerwolf_core
    wire gpu_wr_en, gpu_bram_inx;     
    wire [16:0] gpu_adr;
    wire [7:0] gpu_data;
+   wire gpu_busy;
    wire fcd;
    wire [8:0] pixel_column;
    wire [7:0] column_color;
@@ -499,7 +500,7 @@ module veerwolf_core
       // GPU Status Registers (0x0C)
       .cmd_fifo_empty (cmd_fifo_empty),
       .cmd_fifo_full  (cmd_fifo_full),
-      .busy (1'b0), // Not used as for now
+      .busy (gpu_busy),
       // GPU Control Registers (0x10)
       .overlay_en (overlay_en),
       .prim_mode_en (prim_mode_en),
@@ -534,6 +535,7 @@ module veerwolf_core
       .cmd_fifo_rd_en (cmd_fifo_rd_en),
       .overlay_en (overlay_en),
       .prim_mode_en (prim_mode_en),
+      .busy     (gpu_busy),
       .wr_en    (gpu_wr_en),
       .wr_adr   (gpu_adr),
       .data     (gpu_data)
