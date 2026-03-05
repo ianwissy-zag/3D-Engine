@@ -289,24 +289,34 @@ module wb_gpu #(
       end
     end
 
-    logic [8:0] x_d1;
-    logic [7:0] y_d1;
+    logic [8:0] x_d1, x_d2;
+    logic [7:0] y_d1, y_d2;
     
     always_ff @(posedge gpu_clk) begin
       if (gpu_rst) begin
         x_d1 <= '0;
+	x_d2 <= '0;
         y_d1 <= '0;
+	y_d2 <= '0;
       end else if (tri_state == T_DRAW) begin
         x_d1 <= x_cur;
+        x_d2 <= x_d1;
         y_d1 <= y_cur;
+        y_d2 <= y_d1;
       end
     end
 
-    logic [16:0] row_base_d1;
+    logic [16:0] row_base_d1, row_base_d2;
 
     always_ff @(posedge gpu_clk) begin
-      if (gpu_rst) row_base_d1 <= '0;
-      else if (tri_state == T_DRAW) row_base_d1 <= row_base;
+      if (gpu_rst) begin
+        row_base_d1 <= '0;
+        row_base_d2 <= '0;
+      end
+      else if (tri_state == T_DRAW) begin
+	row_base_d1 <= row_base;
+	row_base_d2 <= row_base_d1;
+      end
     end
     
 
@@ -469,10 +479,10 @@ module wb_gpu #(
      
        if (tri_state == T_DRAW) begin
          // simple screen bounds clip (bbox might already be in range; still safe)
-         if (x_d1 < SCREEN_WIDTH[8:0] && y_d1 < 8'd240) begin
+         if (x_d2 < SCREEN_WIDTH[8:0] && y_d2 < 8'd240) begin
            if (inside_tri_reg) begin
              tri_wr_en   = 1'b1;
-             tri_wr_adr  = row_base_d1 + x_d1;
+             tri_wr_adr  = row_base_d2 + x_d2;
              tri_wr_data = tri_color;
            end
          end
