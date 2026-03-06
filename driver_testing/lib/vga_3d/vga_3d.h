@@ -51,13 +51,19 @@
 
 // GPU Command Register
 #define VGA_CMD_OP_MASK         0xC0000000
-#define VGA_CMD_POINT_MASK      0x0001FFFF
-#define VGA_CMD_X_MASK          0x0001FF00
-#define VGA_CMD_Y_MASK          0x000000FF
-#define VGA_CMD_COLOR_MASK      0x000000FF
+#define VGA_CMD_POINT_MASK      0x3FFFE000
+#define VGA_CMD_X_MASK          0x3FE00000
+#define VGA_CMD_Y_MASK          0x001FE000
+#define VGA_CMD_COLOR_MASK      0x3FC00000
 
-/* Additional VGA GPU Command Register Defines ---------------------------------------------------- */
-// Op Codes
+/* Additional VGA GPU Defines --------------------------------------------------------------------- */
+// Column Drawing Register
+#define VGA_COL_WR_TOG_OFFSET   25
+#define VGA_COL_HEIG_OFFSET     17
+#define VGA_COL_COLOR_OFFSET    9
+#define VGA_COL_PIX_OFFSET      0
+
+// Command Register Op Codes
 #define VGA_CMD_OP_POINT0       0x0
 #define VGA_CMD_OP_POINT1       0x1
 #define VGA_CMD_OP_POINT2       0x2
@@ -65,9 +71,9 @@
 
 // Command Register Field Offsets
 #define VGA_CMD_OP_OFFSET       30
-#define VGA_CMD_X_OFFSET        8
-#define VGA_CMD_Y_OFFSET        0
-#define VGA_CMD_COLOR_OFFSET    0
+#define VGA_CMD_X_OFFSET        21
+#define VGA_CMD_Y_OFFSET        13
+#define VGA_CMD_COLOR_OFFSET    22
 
 /* Macro Definitions ------------------------------------------------------------------------------ */
 // Read and write macros
@@ -91,10 +97,10 @@ typedef struct {
 // L0 Commands
 bool is_cmd_full();
 bool is_cmd_empty();
-void new_frame();
+void frame_done();
 bool send_point_cmd(point_t p, uint8_t idx);
 bool send_color_cmd(uint8_t color);
-bool send_draw_cmd();
+bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height);
 // L1 Commands
 bool draw_triangle(triangle_t tri, uint8_t color);
 

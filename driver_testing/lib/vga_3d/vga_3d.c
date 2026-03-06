@@ -20,8 +20,15 @@ bool is_fifo_empty() {
     return reg & VGA_STATUS_EMPTY_MASK;
 }
 
-void new_frame() {
+void frame_done() {
+    // Target the GPU Frame Calculation Done Register
+    uint32_t addr = VGA_BASEADDR + VGA_FCD_REG;
 
+    // Indicate completed frame
+    WRITE_REG(addr, 0x00000001);
+
+    // Clear FCD Register for next completed frame
+    WRITE_REG(addr, 0x00000000);
 }
 
 bool send_point_cmd(point_t data, uint8_t idx) {
@@ -69,23 +76,19 @@ bool send_color_cmd(uint8_t data) {
     return true;
 }
 
-// TODO: This is placeholder code for sending a draw command to the Command FIFO. 
-bool send_draw_cmd() {
-    // See if there is room in the Command FIFO
-    if (is_fifo_full()) {
-        return false;
-    }
+bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height) {
+    // Target Column Drawing Register
+    uint32_t addr = VGA_BASEADDR + VGA_COL_REG;
 
-    // Target the GPU Command Register
-    uint32_t addr = VGA_BASEADDR + VGA_CMD_REG;
+    // Prepare Column Drawing Fields
+    uint32_t pixel_column = ((uint32_t) p_col << VGA_COL_PIX_OFFSET) & VGA_COL_PIX_MASK;
+    uint32_t column_color = ((uint32_t) color << VGA_COL_COLOR_OFFSET) & VGA_COL_COLOR_MASK;
+    uint32_t column_height = ((uint32_t) height << VGA_COL_HEIG_OFFSET) & VGA_COL_HEIG_MASK;
 
-    // Prepare Command Register fields
+    // Compile data to be written to the Column Drawing Register
+    uint32_t reg = pixel_column | column_color | column_height;
 
-
-    // Compile data to be written to the Command Register
-    uint32_t reg;
-
-    //Write to the GPU
+    // Write to the GPU
     WRITE_REG(addr, reg);
 
     return true;
@@ -94,15 +97,12 @@ bool send_draw_cmd() {
 // TODO: This is placeholder code for drawing triangles on the screen. Not super nice...
 bool draw_triangle(triangle_t tri, uint8_t color) {
     // Send point data
-    while (send_point(tri.a, 0));
-    while (send_point(tri.b, 1));
-    while (send_point(tri.c, 2));
+    while (!send_point(tri.a, 0));
+    while (!send_point(tri.b, 1));
+    while (!send_point(tri.c, 2));
 
-    // Send color data
-    while (send_color(color));
-
-    // Tell GPU that to start drawing the triangle
-    while (send_draw_cmd());
+    // Send color data which tells GPU to start drawing the triangle
+    while (!send_color(color));
 
     return true;
 }
