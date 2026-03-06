@@ -562,7 +562,8 @@ module veerwolf_core
       .vsync     (vsync),
       .hsync     (hsync),
       
-      .fcd      (fcd)
+      .fcd      (fcd),
+      .busy     (gpu_busy)
    );
    
    bram vga_bram (
