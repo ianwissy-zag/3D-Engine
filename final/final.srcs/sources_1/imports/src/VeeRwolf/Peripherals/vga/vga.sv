@@ -15,7 +15,8 @@ module vga #(
     output logic                    vsync,
     output logic                    hsync,
     
-    input  logic                    fcd 
+    input  logic                    fcd,
+    input  logic                    busy
 );
 
     logic        hsync_dtg;
@@ -40,21 +41,29 @@ module vga #(
     assign scaled_y = pixel_row[8:1]; 
     
     logic fcd_meta, fcd_sync;
+    logic busy_meta, busy_sync;
     
     always_ff @(posedge clk_vga) begin
         if (rst) begin
             fcd_meta <= 1'b0;
             fcd_sync <= 1'b0;
+            busy_meta <= 1'b0;
+            busy_sync <= 1'b0;
         end else begin
             fcd_meta <= fcd;
             fcd_sync <= fcd_meta;
+            busy_meta <= busy;
+            busy_sync <= busy_meta;
         end
     end
-    
+   
+    logic enable_flip;
+    assign enable_flip = fcd_sync && !busy_sync;
+
     always_ff @(posedge clk_vga) begin
         if (rst) begin
             bram_inx <= 0;
-        end else if (pixel_col == 0 && pixel_row == 480 && fcd_sync) begin
+        end else if (pixel_col == 0 && pixel_row == 480 && enable_flip) begin
             bram_inx <= ~bram_inx;
         end
     end

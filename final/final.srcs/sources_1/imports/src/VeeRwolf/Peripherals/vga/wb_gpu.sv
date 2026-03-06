@@ -14,12 +14,21 @@ module wb_gpu #(
     input  logic [31:0]         cmd_fifo_rd_data,
 
     output logic                cmd_fifo_rd_en,
+    output logic                busy,
     output logic                wr_en,
     output logic [16:0]         wr_adr,
     output logic [7:0]          data
     
 );
         
+    logic        rc_wr_en;
+    logic [16:0] rc_wr_adr;
+    logic [7:0]  rc_wr_data;
+    
+    logic        tri_wr_en;
+    logic [16:0] tri_wr_adr;
+    logic [7:0]  tri_wr_data;
+
     logic [8:0] gpu_column, gpu_column_meta;
     logic [7:0] gpu_color,  gpu_color_meta;
     logic [7:0] gpu_height, gpu_height_meta;
@@ -68,12 +77,12 @@ module wb_gpu #(
     always_ff @(posedge gpu_clk) begin
         if (gpu_rst) begin
             current_state <= IDLE;
-            wr_en         <= 1'b0;
+            rc_wr_en         <= 1'b0;
             y_cnt         <= 0;
         end else begin
             case (current_state)
                 IDLE: begin
-                    wr_en <= 1'b0;
+                    rc_wr_en <= 1'b0;
                     if (new_data_pulse) begin
                         y_cnt         <= 0;
                         wall_top      <= (CENTER_ROW > (gpu_height >> 1)) ? (CENTER_ROW - (gpu_height >> 1)) : 0;
@@ -83,15 +92,15 @@ module wb_gpu #(
                 end
 
                 DRAW: begin
-                    wr_en  <= 1'b1;
-                    wr_adr <= (y_cnt * SCREEN_WIDTH) + gpu_column;
+                    rc_wr_en  <= 1'b1;
+                    rc_wr_adr <= (y_cnt * SCREEN_WIDTH) + gpu_column;
                     
                     if (y_cnt < wall_top)
-                        data <= 8'h33; 
+                        rc_wr_data <= 8'h33; 
                     else if (y_cnt > wall_bottom)
-                        data <= 8'h77; 
+                        rc_wr_data <= 8'h77; 
                     else
-                        data <= gpu_color; 
+                        rc_wr_data <= gpu_color; 
 
                     if (y_cnt == 239) begin
                         current_state <= IDLE;
@@ -108,15 +117,20 @@ module wb_gpu #(
     logic [31:0] cmd_word;
     
     // Optional: track opcode
-    logic [3:0]  cmd_opcode;
+    logic [1:0]  cmd_opcode;
 
+    logic tri_engine_idle;
+    logic tri_start_pending;
     logic sample_fifo_data;
     
     // If you plan to do multi-word commands (LINE_A/LINE_B), add a small staging state
     typedef enum logic [1:0] {CMD_IDLE, CMD_POP, CMD_LATCH} cmd_state_t;
     cmd_state_t cmd_state;
+    typedef enum logic [1:0] {T_IDLE, T_SETUP0, T_SETUP1, T_DRAW} tri_state_t;
+    tri_state_t tri_state;
 
-    assign sample_fifo_data = prim_mode_en_gpu && !cmd_fifo_empty;
+    assign tri_engine_idle = (tri_state == T_IDLE) && !tri_start_pending;
+    assign sample_fifo_data = prim_mode_en_gpu && !cmd_fifo_empty && tri_engine_idle;
     assign cmd_fifo_rd_en = sample_fifo_data && (cmd_state == CMD_IDLE); // request pop
 
     always_ff @(posedge gpu_clk) begin
@@ -124,7 +138,7 @@ module wb_gpu #(
          cmd_state      <= CMD_IDLE;
          cmd_valid      <= 1'b0;
          cmd_word       <= 32'b0;
-         cmd_opcode     <= 4'h0;
+         cmd_opcode     <= 2'h0;
        end else begin
          // defaults
          cmd_valid      <= 1'b0;
@@ -141,7 +155,7 @@ module wb_gpu #(
            CMD_LATCH: begin
              // rd_data is updated on the previous cycle's pop
              cmd_word   <= cmd_fifo_rd_data;
-             cmd_opcode <= cmd_fifo_rd_data[31:28];
+             cmd_opcode <= cmd_fifo_rd_data[31:30];
              cmd_valid  <= 1'b1;
      
              // Go back to idle; later this will feed a command decoder
@@ -153,23 +167,360 @@ module wb_gpu #(
        end
      end
 
-     always_ff @(posedge gpu_clk) begin
-        if (gpu_rst) begin
-          // debug counters (optional)
-        end else if (cmd_valid) begin
-          unique case (cmd_opcode)
-            4'h1: begin
-              // LINE_A (example)
-              // later: latch x0,y0,x1 and wait for LINE_B
-            end
-            4'h2: begin
-              // LINE_B
-            end
-            default: begin
-              // ignore for now
-            end
-          endcase
-        end
-      end 
+    // Triangle staging
+    logic have_v0, have_v1, have_v2;
+    
+    logic [8:0] tri_x0, tri_x1, tri_x2;
+    logic [7:0] tri_y0, tri_y1, tri_y2;
+    logic [7:0] tri_color;
+    
+    logic tri_start;   // pulse to start raster FSM
+
+    always_ff @(posedge gpu_clk) begin
+       if (gpu_rst) begin
+         have_v0   <= 1'b0;
+         have_v1   <= 1'b0;
+         have_v2   <= 1'b0;
+         tri_x0    <= '0; tri_y0 <= '0;
+         tri_x1    <= '0; tri_y1 <= '0;
+         tri_x2    <= '0; tri_y2 <= '0;
+         tri_color <= '0;
+         tri_start <= 1'b0;
+       end else begin
+         tri_start <= 1'b0;
+     
+         if (cmd_valid) begin
+           unique case (cmd_opcode)
+             2'b00: begin // TRI_V0
+               tri_x0  <= cmd_word[29:21];
+               tri_y0  <= cmd_word[20:13];
+               have_v0 <= 1'b1;
+             end
+     
+             2'b01: begin // TRI_V1
+               tri_x1  <= cmd_word[29:21];
+               tri_y1  <= cmd_word[20:13];
+               have_v1 <= 1'b1;
+             end
+     
+             2'b10: begin // TRI_V2
+               tri_x2  <= cmd_word[29:21];
+               tri_y2  <= cmd_word[20:13];
+               have_v2 <= 1'b1;
+             end
+     
+             2'b11: begin // TRI_SUBMIT
+               if (have_v0 && have_v1 && have_v2) begin
+                 tri_color <= cmd_word[29:22];
+                 tri_start <= 1'b1;
+     
+                 // consume vertices for next triangle
+                 have_v0 <= 1'b0;
+                 have_v1 <= 1'b0;
+                 have_v2 <= 1'b0;
+               end
+             end
+     
+             default: begin end
+           endcase
+         end
+       end
+     end 
+
+    logic [8:0] min_x, max_x, x_cur;
+    logic [7:0] min_y, max_y, y_cur;
+    
+    always_ff @(posedge gpu_clk) begin
+      if (gpu_rst) tri_start_pending <= 1'b0;
+      else if (tri_start) tri_start_pending <= 1'b1;
+      else if (tri_state == T_SETUP0) tri_start_pending <= 1'b0;
+    end
+
+    // Signed vertices latched for setup stages
+    logic signed [10:0] x0s, x1s, x2s;
+    logic signed [9:0]  y0s, y1s, y2s;
+    
+    // BBox origin in signed form
+    logic signed [10:0] mxs;
+    logic signed [9:0]  mys;
+    
+    // Edge deltas
+    logic signed [10:0] dx01, dx12, dx20;
+    logic signed [9:0]  dy01, dy12, dy20;
+    
+    // Edge step increments (incremental raster)
+    logic signed [9:0]  e01_stepX, e12_stepX, e20_stepX;  // -dy
+    logic signed [10:0] e01_stepY, e12_stepY, e20_stepY;  // +dx
+    
+    // Edge values at current pixel and at row start
+    logic signed [23:0] e01, e12, e20;
+    logic signed [23:0] e01_row, e12_row, e20_row;
+    
+    // Address helper (row_base = y*320)
+    logic [16:0] row_base;
+
+    logic inside_tri_reg;
+
+    logic e01_pos, e01_neg, e12_pos, e12_neg, e20_pos, e20_neg;
+
+    always_ff @(posedge gpu_clk) begin
+      if (gpu_rst) begin
+        e01_pos <= 1'b0; e01_neg <= 1'b0;
+        e12_pos <= 1'b0; e12_neg <= 1'b0;
+        e20_pos <= 1'b0; e20_neg <= 1'b0;
+      end else if (tri_state == T_DRAW) begin
+        e01_pos <= (e01 >= 0);
+        e01_neg <= (e01 <= 0);
+        e12_pos <= (e12 >= 0);
+        e12_neg <= (e12 <= 0);
+        e20_pos <= (e20 >= 0);
+        e20_neg <= (e20 <= 0);
+      end
+    end
+
+    always_ff @(posedge gpu_clk) begin
+      if (gpu_rst) begin
+        inside_tri_reg <= 1'b0;
+      end else if (tri_state == T_DRAW) begin
+        inside_tri_reg <= (e01_pos && e12_pos && e20_pos) ||
+                          (e01_neg && e12_neg && e20_neg);
+      end else begin
+        inside_tri_reg <= 1'b0;
+      end
+    end
+
+    logic [8:0] x_d1, x_d2;
+    logic [7:0] y_d1, y_d2;
+    
+    always_ff @(posedge gpu_clk) begin
+      if (gpu_rst) begin
+        x_d1 <= '0;
+	x_d2 <= '0;
+        y_d1 <= '0;
+	y_d2 <= '0;
+      end else if (tri_state == T_DRAW) begin
+        x_d1 <= x_cur;
+        x_d2 <= x_d1;
+        y_d1 <= y_cur;
+        y_d2 <= y_d1;
+      end
+    end
+
+    logic [16:0] row_base_d1, row_base_d2;
+
+    always_ff @(posedge gpu_clk) begin
+      if (gpu_rst) begin
+        row_base_d1 <= '0;
+        row_base_d2 <= '0;
+      end
+      else if (tri_state == T_DRAW) begin
+	row_base_d1 <= row_base;
+	row_base_d2 <= row_base_d1;
+      end
+    end
+    
+
+    always_ff @(posedge gpu_clk) begin
+       if (gpu_rst) begin
+         tri_state <= T_IDLE;
+         x_cur     <= '0;
+         y_cur     <= '0;
+         min_x     <= '0;
+         max_x     <= '0;
+         min_y     <= '0;
+         max_y     <= '0;
+     
+         // edge regs
+         e01 <= '0; e12 <= '0; e20 <= '0;
+         e01_row <= '0; e12_row <= '0; e20_row <= '0;
+     
+         // steps/deltas
+         dx01 <= '0; dx12 <= '0; dx20 <= '0;
+         dy01 <= '0; dy12 <= '0; dy20 <= '0;
+         e01_stepX <= '0; e12_stepX <= '0; e20_stepX <= '0;
+         e01_stepY <= '0; e12_stepY <= '0; e20_stepY <= '0;
+     
+         // signed vertex latches
+         x0s <= '0; x1s <= '0; x2s <= '0;
+         y0s <= '0; y1s <= '0; y2s <= '0;
+         mxs <= '0; mys <= '0;
+     
+         row_base <= '0;
+       end else begin
+         case (tri_state)
+           T_IDLE: begin
+             if (tri_start_pending) begin
+               tri_state <= T_SETUP0;
+             end
+           end
+     
+           // --------------------------
+           // SETUP0: bbox + deltas/steps
+           // --------------------------
+           T_SETUP0: begin
+             // bbox
+             min_x <= min3_9(tri_x0, tri_x1, tri_x2);
+             max_x <= max3_9(tri_x0, tri_x1, tri_x2);
+             min_y <= min3_8(tri_y0, tri_y1, tri_y2);
+             max_y <= max3_8(tri_y0, tri_y1, tri_y2);
+     
+             // start coords
+             x_cur <= min3_9(tri_x0, tri_x1, tri_x2);
+             y_cur <= min3_8(tri_y0, tri_y1, tri_y2);
+     
+             // latch signed vertices (so SETUP1 uses regs, not raw)
+             x0s <= $signed({1'b0, tri_x0});
+             x1s <= $signed({1'b0, tri_x1});
+             x2s <= $signed({1'b0, tri_x2});
+             y0s <= $signed({1'b0, tri_y0});
+             y1s <= $signed({1'b0, tri_y1});
+             y2s <= $signed({1'b0, tri_y2});
+     
+             // latch signed bbox origin (min_x/min_y are being assigned NB here,
+             // so use the same min3_* expressions again for mxs/mys)
+             mxs <= $signed({1'b0, min3_9(tri_x0, tri_x1, tri_x2)});
+             mys <= $signed({1'b0, min3_8(tri_y0, tri_y1, tri_y2)});
+     
+             // compute deltas from the RAW values (safe in same cycle)
+             // dx = xB-xA, dy = yB-yA
+             dx01 <= $signed({1'b0, tri_x1}) - $signed({1'b0, tri_x0});
+             dy01 <= $signed({1'b0, tri_y1}) - $signed({1'b0, tri_y0});
+     
+             dx12 <= $signed({1'b0, tri_x2}) - $signed({1'b0, tri_x1});
+             dy12 <= $signed({1'b0, tri_y2}) - $signed({1'b0, tri_y1});
+     
+             dx20 <= $signed({1'b0, tri_x0}) - $signed({1'b0, tri_x2});
+             dy20 <= $signed({1'b0, tri_y0}) - $signed({1'b0, tri_y2});
+     
+             // step increments: E(x+1,y)=E(x,y)-dy  => stepX = -dy
+             //                  E(x,y+1)=E(x,y)+dx  => stepY =  dx
+             e01_stepX <= -($signed({1'b0, tri_y1}) - $signed({1'b0, tri_y0}));
+             e01_stepY <=  ($signed({1'b0, tri_x1}) - $signed({1'b0, tri_x0}));
+     
+             e12_stepX <= -($signed({1'b0, tri_y2}) - $signed({1'b0, tri_y1}));
+             e12_stepY <=  ($signed({1'b0, tri_x2}) - $signed({1'b0, tri_x1}));
+     
+             e20_stepX <= -($signed({1'b0, tri_y0}) - $signed({1'b0, tri_y2}));
+             e20_stepY <=  ($signed({1'b0, tri_x0}) - $signed({1'b0, tri_x2}));
+     
+             tri_state <= T_SETUP1;
+           end
+     
+           // --------------------------
+           // SETUP1: initial edge values (multiplies once per triangle)
+           // --------------------------
+           T_SETUP1: begin
+             // E(x,y) = (y-ya)*dx - (x-xa)*dy, evaluated at bbox origin (mxs,mys)
+             e01_row <= ( (mys - y0s) * dx01 ) - ( (mxs - x0s) * dy01 );
+             e12_row <= ( (mys - y1s) * dx12 ) - ( (mxs - x1s) * dy12 );
+             e20_row <= ( (mys - y2s) * dx20 ) - ( (mxs - x2s) * dy20 );
+     
+             // current edges start at row start
+             e01 <= ( (mys - y0s) * dx01 ) - ( (mxs - x0s) * dy01 );
+             e12 <= ( (mys - y1s) * dx12 ) - ( (mxs - x1s) * dy12 );
+             e20 <= ( (mys - y2s) * dx20 ) - ( (mxs - x2s) * dy20 );
+     
+             // init row_base for y_cur (which is min_y)
+             // row_base = y*320 = (y<<8) + (y<<6)
+             row_base <= ({9'b0, min3_8(tri_y0, tri_y1, tri_y2)} << 8) +
+                         ({9'b0, min3_8(tri_y0, tri_y1, tri_y2)} << 6);
+     
+             tri_state <= T_DRAW;
+           end
+     
+           // --------------------------
+           // DRAW: bbox scan, incremental edge update (adds only)
+           // --------------------------
+           T_DRAW: begin
+             if (x_cur == max_x) begin
+               // end of row -> reset x, advance y
+               x_cur <= min_x;
+     
+               if (y_cur == max_y) begin
+                 tri_state <= T_IDLE;
+               end else begin
+                 y_cur <= y_cur + 1;
+     
+                 // advance row start edges by one y step
+                 e01_row <= e01_row + e01_stepY;
+                 e12_row <= e12_row + e12_stepY;
+                 e20_row <= e20_row + e20_stepY;
+     
+                 // reset current edges to next row start
+                 // NOTE: use old e*_row + stepY because NB updates happen end-of-cycle
+                 e01 <= e01_row + e01_stepY;
+                 e12 <= e12_row + e12_stepY;
+                 e20 <= e20_row + e20_stepY;
+     
+                 // update row_base for next y
+                 // row_base_next = row_base + 320
+                 row_base <= row_base + 17'd320;
+               end
+             end else begin
+               // next x in same row
+               x_cur <= x_cur + 1;
+     
+               // advance edges across x: add stepX
+               e01 <= e01 + e01_stepX;
+               e12 <= e12 + e12_stepX;
+               e20 <= e20 + e20_stepX;
+             end
+           end
+     
+           default: tri_state <= T_IDLE;
+         endcase
+       end
+     end
+
+    always_comb begin
+       tri_wr_en   = 1'b0;
+       tri_wr_adr  = '0;
+       tri_wr_data = tri_color;
+     
+       if (tri_state == T_DRAW) begin
+         // simple screen bounds clip (bbox might already be in range; still safe)
+         if (x_d2 < SCREEN_WIDTH[8:0] && y_d2 < 8'd240) begin
+           if (inside_tri_reg) begin
+             tri_wr_en   = 1'b1;
+             tri_wr_adr  = row_base_d2 + x_d2;
+             tri_wr_data = tri_color;
+           end
+         end
+       end
+     end
+
+    always_comb begin
+       // default: raycast drives
+       wr_en  = rc_wr_en;
+       wr_adr = rc_wr_adr;
+       data   = rc_wr_data;
+     
+       // overlay triangle writes on top if enabled
+       if (overlay_en_gpu && tri_wr_en) begin
+         wr_en  = tri_wr_en;
+         wr_adr = tri_wr_adr;
+         data   = tri_wr_data;
+       end
+   end
+
+   assign busy = (current_state != IDLE) || (tri_state != T_IDLE) ||
+                  have_v0 || have_v1 || have_v2 || tri_start_pending;
+
+// Functions
+function automatic [8:0] min3_9(input [8:0] a,b,c);
+  min3_9 = (a<b) ? ((a<c)?a:c) : ((b<c)?b:c);
+endfunction
+
+function automatic [8:0] max3_9(input [8:0] a,b,c);
+  max3_9 = (a>b) ? ((a>c)?a:c) : ((b>c)?b:c);
+endfunction
+
+function automatic [7:0] min3_8(input [7:0] a,b,c);
+  min3_8 = (a<b) ? ((a<c)?a:c) : ((b<c)?b:c);
+endfunction
+
+function automatic [7:0] max3_8(input [7:0] a,b,c);
+  max3_8 = (a>b) ? ((a>c)?a:c) : ((b>c)?b:c);
+endfunction 
 
 endmodule
