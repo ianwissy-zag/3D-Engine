@@ -20,6 +20,23 @@ bool is_fifo_empty() {
     return reg & VGA_STATUS_EMPTY_MASK;
 }
 
+void set_control_reg(bool overlay_en, bool prim_mode_en) {
+    // Target the GPU Control Register
+    uint32_t addr = VGA_BASEADDR + VGA_CTRL_REG;
+
+    // Prepare Control Register fields
+    uint32_t reg = 0x00000000;
+    if (overlay_en) {
+        reg |= VGA_CTRL_OVERL_MASK;
+    }
+    if (prim_mode_en) {
+        reg |= VGA_CTRL_MODE_MASK;
+    }
+
+    // Write to the GPU
+    WRITE_REG(addr, reg);
+}
+
 void frame_done() {
     // Target the GPU Frame Calculation Done Register
     uint32_t addr = VGA_BASEADDR + VGA_FCD_REG;

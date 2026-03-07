@@ -118,6 +118,18 @@ bool is_cmd_full();
 bool is_cmd_empty();
 
 /**
+ * @brief   set_control_reg() sets control fields in the GPU Control Register that dictate the GPU's
+ *          behavior.
+ * 
+ * @param   overlay_en:     Enable for overlay
+ * 
+ * @param   prim_mode_en:   Enable for primitive mode
+ * 
+ * @return  There is no return value
+ */
+void set_control_reg(bool overlay_en, bool prim_mode_en);
+
+/**
  * @brief   frame_done() tells the GPU that this frame is done being drawn and to switch to the next 
  *          frame so it can be drawn.
  * 

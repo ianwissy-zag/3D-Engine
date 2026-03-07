@@ -298,6 +298,8 @@ int main(void) {
     uint8_t pitch = 0;
     uint8_t roll = 0;
 
+    set_control_reg(true, true);
+
     while (1) {
         // TODO: Adjust frame sync when driver is ready
         frame_done();
