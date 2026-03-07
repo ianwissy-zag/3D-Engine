@@ -40,6 +40,11 @@ bool send_point_cmd(point_t data, uint8_t idx) {
     // Target the GPU Command Register
     uint32_t addr = VGA_BASEADDR + VGA_CMD_REG;
 
+    // Make sure the point index is valid (0 through 2)
+    if (idx > 2) {
+        return false;
+    }
+
     // Prepare Command Register fields
     uint32_t x = ((uint32_t) data.x << VGA_CMD_X_OFFSET) & VGA_CMD_X_MASK;
     uint32_t y = ((uint32_t) data.y << VGA_CMD_Y_OFFSET) & VGA_CMD_Y_MASK;
