@@ -303,6 +303,9 @@ int main(void) {
     while (1) {
         render_cube(yaw, pitch, roll);
 
+        send_column_cmd(VGA_SCREEN_WIDTH >> 2, 0xE0, VGA_SCREEN_HEIGHT);
+        //send_column_cmd(VGA_SCREEN_WIDTH >> 2, 0xE0, VGA_SCREEN_HEIGHT);
+
         // TODO: Adjust frame sync when driver is ready
         frame_done();
 

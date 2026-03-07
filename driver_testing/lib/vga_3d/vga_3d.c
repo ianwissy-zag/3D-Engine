@@ -41,8 +41,14 @@ void frame_done() {
     // Target the GPU Frame Calculation Done Register
     volatile uint32_t addr = VGA_BASEADDR + VGA_FCD_REG;
 
+    // Find current BRAM Buffer Index
+    volatile uint32_t buf_idx = READ_REG(VGA_BASEADDR + VGA_BUF_IDX_REG);
+
     // Indicate completed frame
     WRITE_REG(addr, 0x00000001);
+
+    // Wait for BRAM Buffer Index to change
+    while (buf_idx == READ_REG(VGA_BASEADDR + VGA_BUF_IDX_REG));
 
     // Clear FCD Register for next completed frame
     WRITE_REG(addr, 0x00000000);
