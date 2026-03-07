@@ -112,12 +112,12 @@ bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height) {
 // TODO: This is placeholder code for drawing triangles on the screen. Not super nice...
 bool draw_triangle(triangle_t tri, uint8_t color) {
     // Send point data
-    while (!send_point(tri.a, 0));
-    while (!send_point(tri.b, 1));
-    while (!send_point(tri.c, 2));
+    while (!send_point_cmd(tri.a, 0));
+    while (!send_point_cmd(tri.b, 1));
+    while (!send_point_cmd(tri.c, 2));
 
     // Send color data which tells GPU to start drawing the triangle
-    while (!send_color(color));
+    while (!send_color_cmd(color));
 
     return true;
 }

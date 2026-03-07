@@ -300,7 +300,7 @@ int main(void) {
 
     while (1) {
         // TODO: Adjust frame sync when driver is ready
-        new_frame();
+        frame_done();
 
         render_cube(yaw, pitch, roll);
 
