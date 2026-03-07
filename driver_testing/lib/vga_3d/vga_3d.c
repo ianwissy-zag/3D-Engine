@@ -82,6 +82,16 @@ bool send_color_cmd(uint8_t data) {
 }
 
 bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height) {
+    // Ensure that the pixel column is valid
+    if (p_col > (VGA_SCREEN_WIDTH - 1)) {
+        p_col = VGA_SCREEN_WIDTH - 1;
+    }
+
+    // Ensure that the column height is valid
+    if (height > VGA_SCREEN_HEIGHT) {
+        height = VGA_SCREEN_HEIGHT;
+    }
+
     // Target Column Drawing Register
     uint32_t addr = VGA_BASEADDR + VGA_COL_REG;
 

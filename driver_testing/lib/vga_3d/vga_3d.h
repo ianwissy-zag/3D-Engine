@@ -23,6 +23,9 @@
 #define VGA_STATUS_REG          0x0C    // GPU Status Register                  (Read Only)
 #define VGA_CTRL_REG            0x10    // GPU Control Register                 (Read and Write)
 #define VGA_CMD_REG             0x14    // GPU Command Register                 (Write Only)
+// Screen Dimensions
+#define VGA_SCREEN_WIDTH        320
+#define VGA_SCREEN_HEIGHT       240
 
 /* VGA GPU Register Masks ------------------------------------------------------------------------- */ 
 // Frame Buffer Index Register
@@ -94,14 +97,108 @@ typedef struct {
 } triangle_t;
 
 /* Function Declarations -------------------------------------------------------------------------- */
-// L0 Commands
+
+/**
+ * @brief   is_cmd_full() determines if the 3D Command FIFO is full.
+ * 
+ * @details This function reads the GPU Status Register and determines if the 3D Command FIFO is full.
+ * 
+ * @return  Returns true if the 3D Command FIFO is full. Returns false otherwise.
+ */
 bool is_cmd_full();
+
+/**
+ * @brief   is_cmd_empty() determines if the 3D Command FIFO is empty.
+ * 
+ * @details This function reads the GPU Status Register and determines if the 3D Command FIFO is 
+ *          empty.
+ * 
+ * @return  Returns true if the 3D Command FIFO is empty. Returns false otherwise.
+ */
 bool is_cmd_empty();
+
+/**
+ * @brief   frame_done() tells the GPU that this frame is done being drawn and to switch to the next 
+ *          frame so it can be drawn.
+ * 
+ * @details This function writes to the Frame Calculation Done Register. This tells the GPU that the 
+ *          contents of the currently selected BRAM can be shown on the screen and that future writes 
+ *          are to be directed to the other BRAM.
+ * 
+ * @return  There is no return value.
+ */
 void frame_done();
+
+/**
+ * @brief   send_point_cmd() sends 1 point of a triangle to the GPU.
+ * 
+ * @details This function sends an indexed point of the triangle numbered 0 through 2 to the 3D 
+ *          Command FIFO for processing by the GPU.
+ * 
+ * @note    It is important that point data be written to the 3D Command FIFO before the color data. 
+ *          This is because sending color data to the 3D Command FIFO also starts the triangle 
+ *          rasterization process.
+ * 
+ * @param   p:      A point_t struct that contains the x and y point data for a vertex of the triangle.
+ * 
+ * @param   idx:    A index marking what point of the trianlge it is. It can be 0, 1, or 2.
+ *
+ * @return  Returns true if the point data was sent successfully. Returns false if the 3D Command FIFO
+ *          is full and can't accept more commands at the moment.
+ */
 bool send_point_cmd(point_t p, uint8_t idx);
+
+/**
+ * @brief   send_color_cmd() sends the color of the triangle to the GPU and starts the rasterization 
+ *          process.
+ * 
+ * @details This function sends a 8-bit color to the 3D Command FIFO. The 8-bit color is mapped below
+ *          where a 'r' represents a red bit, 'g' represents a green bit, and 'b' represents a blue
+ *          bit.
+ *          
+ *          color = {rrrgggbb}
+ * 
+ * @note    It is important that point data be written to the 3D Command FIFO before the color data. 
+ *          This is because sending color data to the 3D Command FIFO also starts the triangle 
+ *          rasterization process.
+ * 
+ * @param   color:  The 8-bit color of the triangle.
+ * 
+ * @return  Returns true if the color data was sent successfully. Returns false if the 3D Command FIFO
+ *          is full and can't accept more commands at the moment.
+ */
 bool send_color_cmd(uint8_t color);
+
+/**
+ * @brief   send_column_cmd() sends a y-centered column to be drawn on the screen.
+ * 
+ * @details This function sends a y-centered column to the Column Drawing Register. This in turn 
+ *          writes the rectangle data to the BRAM. 
+ * 
+ * @param   p_col:  The pixel column that the rectangle is to be drawn in.
+ * 
+ * @param   color:  The 8-bit color of the rectangle.
+ * 
+ * @param   height: The height of the rectangle.
+ * 
+ * @return  Returns true.
+ */
 bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height);
-// L1 Commands
+
+/**
+ * @brief   draw_triangle() send triangle data (points and color) to the GPU which rasterizes the 
+ *          triangle and puts that data into the BRAM.
+ * 
+ * @details This function first sends point data and then color data to the 3D Command FIFO to 
+ *          rasterize the triangle. To make sure that the data is sent, the function waits until the 
+ *          3D Command FIFO has room with a while loop.
+ * 
+ * @param   tri:    A triangle_t struct that contains all of the triangle's point data.
+ * 
+ * @param   color:  The 8-bit color of the triangle.
+ * 
+ * @return  Returns true.
+ */
 bool draw_triangle(triangle_t tri, uint8_t color);
 
 #endif // VGA_3D_H
