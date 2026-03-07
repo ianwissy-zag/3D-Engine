@@ -301,10 +301,10 @@ int main(void) {
     set_control_reg(true, true);
 
     while (1) {
+        render_cube(yaw, pitch, roll);
+
         // TODO: Adjust frame sync when driver is ready
         frame_done();
-
-        render_cube(yaw, pitch, roll);
 
         yaw += 1;
         pitch += 1;
