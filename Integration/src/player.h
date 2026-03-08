@@ -1,0 +1,57 @@
+#ifndef PLAYER_H
+#define PLAYER_H
+
+#include "raycaster.h" /* Included for the fixed32 definition */
+
+/* Global toggles */
+extern char movingForward;
+extern char movingBack;
+extern char turningLeft;
+extern char turningRight;
+extern char playerIsRunning;
+
+#ifndef FIXED32_DEFINED
+#define FIXED32_DEFINED
+typedef int32_t fixed32;
+#endif
+
+/* Functions */
+
+/**
+ * Initialize the player.
+ */
+void initPlayer();
+
+/*
+* Rotate the player one step in the given direction scaled by delta time
+*/
+void rotatePlayer(int direction, fixed32 dt_mult);
+
+/**
+ * Update the player for the current frame scaled by delta time.
+ */
+void updatePlayer(fixed32 dt_mult);
+
+/**
+ * Move the player by a given movement vector.
+ *
+ * dx: The x component of the movement vector (16.16 fixed-point).
+ * dy: The y component of the movement vector (16.16 fixed-point).
+ */
+void movePlayer(fixed32 dx, fixed32 dy);
+
+/**
+ * Check if a given movement vector intersects with the world
+ * and should be clipped.
+ *
+ * dx: The x component of the movement vector to check (16.16 fixed-point).
+ * dy: The y component of the movement vector to check (16.16 fixed-point).
+ *
+ * Returns: Zero if the vector should not be clipped, non-zero otherwise.
+ */
+int clipMovement(fixed32 dx, fixed32 dy);
+
+
+void get_cube_camera_offsets(int32_t *offset_x, int32_t *offset_y);
+
+#endif /* PLAYER_H */

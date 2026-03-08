@@ -32,7 +32,7 @@ module wb_gpu #(
     logic [8:0] gpu_column, gpu_column_meta;
     logic [7:0] gpu_color,  gpu_color_meta;
     logic [7:0] gpu_height, gpu_height_meta;
-    logic       gpu_toggle, gpu_toggle_meta, gpu_toggle_d1;
+    logic        gpu_toggle, gpu_toggle_meta, gpu_toggle_d1;
     
     always_ff @(posedge gpu_clk) begin
         gpu_column_meta <= pixel_column;
@@ -170,8 +170,8 @@ module wb_gpu #(
     // Triangle staging
     logic have_v0, have_v1, have_v2;
     
-    logic [8:0] tri_x0, tri_x1, tri_x2;
-    logic [7:0] tri_y0, tri_y1, tri_y2;
+    logic signed [10:0] tri_x0, tri_x1, tri_x2;
+    logic signed [9:0]  tri_y0, tri_y1, tri_y2;
     logic [7:0] tri_color;
     
     logic tri_start;   // pulse to start raster FSM
@@ -192,20 +192,20 @@ module wb_gpu #(
          if (cmd_valid) begin
            unique case (cmd_opcode)
              2'b00: begin // TRI_V0
-               tri_x0  <= cmd_word[29:21];
-               tri_y0  <= cmd_word[20:13];
+               tri_x0  <= $signed(cmd_word[29:19]);
+               tri_y0  <= $signed(cmd_word[18:9]);
                have_v0 <= 1'b1;
              end
      
              2'b01: begin // TRI_V1
-               tri_x1  <= cmd_word[29:21];
-               tri_y1  <= cmd_word[20:13];
+               tri_x1  <= $signed(cmd_word[29:19]);
+               tri_y1  <= $signed(cmd_word[18:9]);
                have_v1 <= 1'b1;
              end
      
              2'b10: begin // TRI_V2
-               tri_x2  <= cmd_word[29:21];
-               tri_y2  <= cmd_word[20:13];
+               tri_x2  <= $signed(cmd_word[29:19]);
+               tri_y2  <= $signed(cmd_word[18:9]);
                have_v2 <= 1'b1;
              end
      
@@ -227,8 +227,8 @@ module wb_gpu #(
        end
      end 
 
-    logic [8:0] min_x, max_x, x_cur;
-    logic [7:0] min_y, max_y, y_cur;
+    logic signed [10:0] min_x, max_x, x_cur;
+    logic signed [9:0] min_y, max_y, y_cur;
     
     always_ff @(posedge gpu_clk) begin
       if (gpu_rst) tri_start_pending <= 1'b0;
@@ -289,20 +289,25 @@ module wb_gpu #(
       end
     end
 
-    logic [8:0] x_d1, x_d2;
-    logic [7:0] y_d1, y_d2;
+    logic signed [10:0] x_d1, x_d2;
+    logic signed [9:0] y_d1, y_d2;
+    logic draw_valid_d1, draw_valid_d2;
     
     always_ff @(posedge gpu_clk) begin
       if (gpu_rst) begin
         x_d1 <= '0;
-	x_d2 <= '0;
+        x_d2 <= '0;
         y_d1 <= '0;
-	y_d2 <= '0;
-      end else if (tri_state == T_DRAW) begin
+        y_d2 <= '0;
+        draw_valid_d1 <= 1'b0;
+        draw_valid_d2 <= 1'b0;
+      end else begin
         x_d1 <= x_cur;
         x_d2 <= x_d1;
         y_d1 <= y_cur;
         y_d2 <= y_d1;
+        draw_valid_d1 <= (tri_state == T_DRAW);
+        draw_valid_d2 <= draw_valid_d1;
       end
     end
 
@@ -313,9 +318,9 @@ module wb_gpu #(
         row_base_d1 <= '0;
         row_base_d2 <= '0;
       end
-      else if (tri_state == T_DRAW) begin
-	row_base_d1 <= row_base;
-	row_base_d2 <= row_base_d1;
+      else begin
+        row_base_d1 <= row_base;
+        row_base_d2 <= row_base_d1;
       end
     end
     
@@ -359,49 +364,49 @@ module wb_gpu #(
            // --------------------------
            T_SETUP0: begin
              // bbox
-             min_x <= min3_9(tri_x0, tri_x1, tri_x2);
-             max_x <= max3_9(tri_x0, tri_x1, tri_x2);
-             min_y <= min3_8(tri_y0, tri_y1, tri_y2);
-             max_y <= max3_8(tri_y0, tri_y1, tri_y2);
+             min_x <= min3_11(tri_x0, tri_x1, tri_x2);
+             max_x <= max3_11(tri_x0, tri_x1, tri_x2);
+             min_y <= min3_10(tri_y0, tri_y1, tri_y2);
+             max_y <= max3_10(tri_y0, tri_y1, tri_y2);
      
              // start coords
-             x_cur <= min3_9(tri_x0, tri_x1, tri_x2);
-             y_cur <= min3_8(tri_y0, tri_y1, tri_y2);
+             x_cur <= min3_11(tri_x0, tri_x1, tri_x2);
+             y_cur <= min3_10(tri_y0, tri_y1, tri_y2);
      
              // latch signed vertices (so SETUP1 uses regs, not raw)
-             x0s <= $signed({1'b0, tri_x0});
-             x1s <= $signed({1'b0, tri_x1});
-             x2s <= $signed({1'b0, tri_x2});
-             y0s <= $signed({1'b0, tri_y0});
-             y1s <= $signed({1'b0, tri_y1});
-             y2s <= $signed({1'b0, tri_y2});
+             x0s <= tri_x0;
+             x1s <= tri_x1;
+             x2s <= tri_x2;
+             y0s <= tri_y0;
+             y1s <= tri_y1;
+             y2s <= tri_y2;
      
              // latch signed bbox origin (min_x/min_y are being assigned NB here,
              // so use the same min3_* expressions again for mxs/mys)
-             mxs <= $signed({1'b0, min3_9(tri_x0, tri_x1, tri_x2)});
-             mys <= $signed({1'b0, min3_8(tri_y0, tri_y1, tri_y2)});
+             mxs <= min3_11(tri_x0, tri_x1, tri_x2);
+             mys <= min3_10(tri_y0, tri_y1, tri_y2);
      
              // compute deltas from the RAW values (safe in same cycle)
              // dx = xB-xA, dy = yB-yA
-             dx01 <= $signed({1'b0, tri_x1}) - $signed({1'b0, tri_x0});
-             dy01 <= $signed({1'b0, tri_y1}) - $signed({1'b0, tri_y0});
+             dx01 <= tri_x1 - tri_x0;
+             dy01 <= tri_y1 - tri_y0;
      
-             dx12 <= $signed({1'b0, tri_x2}) - $signed({1'b0, tri_x1});
-             dy12 <= $signed({1'b0, tri_y2}) - $signed({1'b0, tri_y1});
+             dx12 <= tri_x2 - tri_x1;
+             dy12 <= tri_y2 - tri_y1;
      
-             dx20 <= $signed({1'b0, tri_x0}) - $signed({1'b0, tri_x2});
-             dy20 <= $signed({1'b0, tri_y0}) - $signed({1'b0, tri_y2});
+             dx20 <= tri_x0 - tri_x2;
+             dy20 <= tri_y0 - tri_y2;
      
              // step increments: E(x+1,y)=E(x,y)-dy  => stepX = -dy
              //                  E(x,y+1)=E(x,y)+dx  => stepY =  dx
-             e01_stepX <= -($signed({1'b0, tri_y1}) - $signed({1'b0, tri_y0}));
-             e01_stepY <=  ($signed({1'b0, tri_x1}) - $signed({1'b0, tri_x0}));
+             e01_stepX <= -(tri_y1 - tri_y0);
+             e01_stepY <=  (tri_x1 - tri_x0);
      
-             e12_stepX <= -($signed({1'b0, tri_y2}) - $signed({1'b0, tri_y1}));
-             e12_stepY <=  ($signed({1'b0, tri_x2}) - $signed({1'b0, tri_x1}));
+             e12_stepX <= -(tri_y2 - tri_y1);
+             e12_stepY <=  (tri_x2 - tri_x1);
      
-             e20_stepX <= -($signed({1'b0, tri_y0}) - $signed({1'b0, tri_y2}));
-             e20_stepY <=  ($signed({1'b0, tri_x0}) - $signed({1'b0, tri_x2}));
+             e20_stepX <= -(tri_y0 - tri_y2);
+             e20_stepY <=  (tri_x0 - tri_x2);
      
              tri_state <= T_SETUP1;
            end
@@ -422,8 +427,8 @@ module wb_gpu #(
      
              // init row_base for y_cur (which is min_y)
              // row_base = y*320 = (y<<8) + (y<<6)
-             row_base <= ({9'b0, min3_8(tri_y0, tri_y1, tri_y2)} << 8) +
-                         ({9'b0, min3_8(tri_y0, tri_y1, tri_y2)} << 6);
+             row_base <= ({7'b0, min3_10(tri_y0, tri_y1, tri_y2)} << 8) +
+                         ({7'b0, min3_10(tri_y0, tri_y1, tri_y2)} << 6);
      
              tri_state <= T_DRAW;
            end
@@ -477,12 +482,12 @@ module wb_gpu #(
        tri_wr_adr  = '0;
        tri_wr_data = tri_color;
      
-       if (tri_state == T_DRAW) begin
+       if (draw_valid_d2) begin
          // simple screen bounds clip (bbox might already be in range; still safe)
-         if (x_d2 < SCREEN_WIDTH[8:0] && y_d2 < 8'd240) begin
+         if (x_d2 >= 0 && x_d2 < $signed({2'b0, SCREEN_WIDTH[8:0]}) && y_d2 >= 0 && y_d2 < 240) begin
            if (inside_tri_reg) begin
              tri_wr_en   = 1'b1;
-             tri_wr_adr  = row_base_d2 + x_d2;
+             tri_wr_adr  = row_base_d2 + 17'(x_d2);
              tri_wr_data = tri_color;
            end
          end
@@ -507,20 +512,20 @@ module wb_gpu #(
                   have_v0 || have_v1 || have_v2 || tri_start_pending;
 
 // Functions
-function automatic [8:0] min3_9(input [8:0] a,b,c);
-  min3_9 = (a<b) ? ((a<c)?a:c) : ((b<c)?b:c);
+function automatic signed [10:0] min3_11(input signed [10:0] a,b,c);
+  min3_11 = (a<b) ? ((a<c)?a:c) : ((b<c)?b:c);
 endfunction
 
-function automatic [8:0] max3_9(input [8:0] a,b,c);
-  max3_9 = (a>b) ? ((a>c)?a:c) : ((b>c)?b:c);
+function automatic signed [10:0] max3_11(input signed [10:0] a,b,c);
+  max3_11 = (a>b) ? ((a>c)?a:c) : ((b>c)?b:c);
 endfunction
 
-function automatic [7:0] min3_8(input [7:0] a,b,c);
-  min3_8 = (a<b) ? ((a<c)?a:c) : ((b<c)?b:c);
+function automatic signed [9:0] min3_10(input signed [9:0] a,b,c);
+  min3_10 = (a<b) ? ((a<c)?a:c) : ((b<c)?b:c);
 endfunction
 
-function automatic [7:0] max3_8(input [7:0] a,b,c);
-  max3_8 = (a>b) ? ((a>c)?a:c) : ((b>c)?b:c);
+function automatic signed [9:0] max3_10(input signed [9:0] a,b,c);
+  max3_10 = (a>b) ? ((a>c)?a:c) : ((b>c)?b:c);
 endfunction 
 
 endmodule
