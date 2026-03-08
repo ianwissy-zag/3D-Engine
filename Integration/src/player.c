@@ -122,7 +122,7 @@ void initPlayer() {
     }
 }
 
-void get_cube_camera_offsets(int32_t *offset_x, int32_t *offset_y) {
+void get_cube_camera_offsets(int32_t *offset_x, int32_t *offset_y, int32_t *height) {
     int row, col;
     fixed32 cubeX = 0;
     fixed32 cubeY = 0;
@@ -149,6 +149,15 @@ void get_cube_camera_offsets(int32_t *offset_x, int32_t *offset_y) {
     // Calculate the rotated distances (still in 16.16 map scale)
     fixed32 forward_dist = (fixed32)(((int64_t)dx * cos_a + (int64_t)dy * sin_a) >> 16);
     fixed32 right_dist = (fixed32)(((int64_t)dx * (-sin_a) + (int64_t)dy * cos_a) >> 16);
+
+    // Calculate height based on perpendicular distance (forward_dist)
+    fixed32 perpWallDist = forward_dist / WALL_SIZE;
+    if (perpWallDist <= 0) perpWallDist = 1;
+    int calc_height = (240 << 16) / perpWallDist;
+
+    if (calc_height > 255) calc_height = 255;
+    if (calc_height < 0) calc_height = 0;
+    *height = calc_height;
 
     // Divide by WALL_SIZE to normalize to 1 map tile = 1 3D UNIT
     // Then shift by 8 to convert from 16.16 to the 3D engine's 8.8 format

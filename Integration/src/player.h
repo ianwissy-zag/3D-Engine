@@ -52,6 +52,6 @@ void movePlayer(fixed32 dx, fixed32 dy);
 int clipMovement(fixed32 dx, fixed32 dy);
 
 
-void get_cube_camera_offsets(int32_t *offset_x, int32_t *offset_y);
+void get_cube_camera_offsets(int32_t *offset_x, int32_t *offset_y, int32_t *height);
 
 #endif /* PLAYER_H */

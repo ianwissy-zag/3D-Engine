@@ -159,7 +159,7 @@ static void sort_faces_back_to_front(draw_face_t *list, uint8_t count) {
     }
 }
 
-void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int32_t offset_y, int32_t offset_z) {
+void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int32_t offset_y, int32_t offset_z, uint32_t height) {
     vec3_t cam_space[8];
     point_t screen_pts[8];
     bool projected[8];
@@ -249,7 +249,8 @@ void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int
             screen_pts[face->i3]
         };
 
-        draw_triangle(t0, face->color);
-        draw_triangle(t1, face->color);
+        // Passing height as the third argument
+        draw_triangle(t0, face->color, height);
+        draw_triangle(t1, face->color, height);
     }
 }

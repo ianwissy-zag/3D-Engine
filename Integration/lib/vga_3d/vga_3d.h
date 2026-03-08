@@ -48,6 +48,7 @@
 #define VGA_CMD_X_MASK          0x3FF80000
 #define VGA_CMD_Y_MASK          0x0007FE00
 #define VGA_CMD_COLOR_MASK      0x3FC00000
+#define VGA_CMD_HEIGHT_MASK     0x003FC000
 
 /* Additional VGA GPU Defines --------------------------------------------------------------------- */
 // Column Drawing Register
@@ -67,6 +68,7 @@
 #define VGA_CMD_X_OFFSET        19
 #define VGA_CMD_Y_OFFSET        9
 #define VGA_CMD_COLOR_OFFSET    22
+#define VGA_CMD_HEIGHT_OFFSET   14
 
 /* Macro Definitions ------------------------------------------------------------------------------ */
 // Read and write macros
@@ -91,7 +93,7 @@ typedef struct {
 /**
  * @brief   is_cmd_full() determines if the 3D Command FIFO is full.
  * * @details This function reads the GPU Status Register and determines if the 3D Command FIFO is full.
- * * @return  Returns true if the 3D Command FIFO is full. Returns false otherwise.
+ * * @return   Returns true if the 3D Command FIFO is full. Returns false otherwise.
  */
 bool is_cmd_full();
 
@@ -99,7 +101,7 @@ bool is_cmd_full();
  * @brief   is_cmd_empty() determines if the 3D Command FIFO is empty.
  * * @details This function reads the GPU Status Register and determines if the 3D Command FIFO is 
  * empty.
- * * @return  Returns true if the 3D Command FIFO is empty. Returns false otherwise.
+ * * @return   Returns true if the 3D Command FIFO is empty. Returns false otherwise.
  */
 bool is_cmd_empty();
 
@@ -108,7 +110,7 @@ bool is_cmd_empty();
  * behavior.
  * * @param   overlay_en:     Enable for overlay
  * * @param   prim_mode_en:   Enable for primitive mode
- * * @return  There is no return value
+ * * @return   There is no return value
  */
 void set_control_reg(bool overlay_en, bool prim_mode_en);
 
@@ -118,7 +120,7 @@ void set_control_reg(bool overlay_en, bool prim_mode_en);
  * * @details This function writes to the Frame Calculation Done Register. This tells the GPU that the 
  * contents of the currently selected BRAM can be shown on the screen and that future writes 
  * are to be directed to the other BRAM.
- * * @return  There is no return value.
+ * * @return   There is no return value.
  */
 void frame_done();
 
@@ -132,7 +134,7 @@ void frame_done();
  * * @param   p:      A point_t struct that contains the x and y point data for a vertex of the triangle.
  * * @param   idx:    A index marking what point of the trianlge it is. It can be 0, 1, or 2.
  *
- * @return  Returns true if the point data was sent successfully. Returns false if the 3D Command FIFO
+ * @return   Returns true if the point data was sent successfully. Returns false if the 3D Command FIFO
  * is full and can't accept more commands at the moment.
  */
 bool send_point_cmd(point_t p, uint8_t idx);
@@ -148,10 +150,11 @@ bool send_point_cmd(point_t p, uint8_t idx);
  * This is because sending color data to the 3D Command FIFO also starts the triangle 
  * rasterization process.
  * * @param   color:  The 8-bit color of the triangle.
- * * @return  Returns true if the color data was sent successfully. Returns false if the 3D Command FIFO
+ * * @param   height: The 8-bit height of the triangle.
+ * * @return   Returns true if the color data was sent successfully. Returns false if the 3D Command FIFO
  * is full and can't accept more commands at the moment.
  */
-bool send_color_cmd(uint8_t color);
+bool send_color_cmd(uint8_t color, uint8_t height);
 
 /**
  * @brief   send_column_cmd() sends a y-centered column to be drawn on the screen.
@@ -160,7 +163,7 @@ bool send_color_cmd(uint8_t color);
  * * @param   p_col:  The pixel column that the rectangle is to be drawn in.
  * * @param   color:  The 8-bit color of the rectangle.
  * * @param   height: The height of the rectangle.
- * * @return  Returns true.
+ * * @return   Returns true.
  */
 bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height);
 
@@ -172,8 +175,9 @@ bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height);
  * 3D Command FIFO has room with a while loop.
  * * @param   tri:    A triangle_t struct that contains all of the triangle's point data.
  * * @param   color:  The 8-bit color of the triangle.
- * * @return  Returns true.
+ * * @param   height: The 8-bit height of the triangle.
+ * * @return   Returns true.
  */
-bool draw_triangle(triangle_t tri, uint8_t color);
+bool draw_triangle(triangle_t tri, uint8_t color, uint8_t height);
 
 #endif // VGA_3D_H

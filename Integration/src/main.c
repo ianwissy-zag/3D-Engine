@@ -91,10 +91,11 @@ int main() {
 
         int32_t dyn_offset_x = 0;
         int32_t dyn_offset_y = 0;
+        int32_t height = 0;
 
-        get_cube_camera_offsets(&dyn_offset_x, &dyn_offset_y);
+        get_cube_camera_offsets(&dyn_offset_x, &dyn_offset_y, &height);
 
-        render_cube(yaw, pitch, roll, dyn_offset_x, dyn_offset_y, UNIT/4);
+        render_cube(yaw, pitch, roll, dyn_offset_x, dyn_offset_y, UNIT/4, height);
 
         yaw += 1;
         pitch += 1;

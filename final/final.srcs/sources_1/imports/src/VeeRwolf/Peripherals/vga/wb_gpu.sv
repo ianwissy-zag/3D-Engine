@@ -24,8 +24,6 @@ module wb_gpu #(
     logic [7:0] z_table [0:SCREEN_WIDTH-1];
     // Pipeline registers to align Z-data with the triangle rasterizer's d2 stage
     logic [7:0] z_val_d1, z_val_d2;
-    // Temporary constant for testing triangle depth
-    localparam logic [7:0] TEST_TRI_HEIGHT = 8'd200;
 
     logic        rc_wr_en;
     logic [16:0] rc_wr_adr;
@@ -159,7 +157,6 @@ module wb_gpu #(
          case (cmd_state)
            CMD_IDLE: begin
              // Only drain when primitive mode enabled AND fifo has data
-             // prim_mode_en is currently WB-domain; you should sync it into gpu_clk domain first.
              if (sample_fifo_data) begin
                cmd_state      <= CMD_LATCH; // latch next cycle
              end
@@ -186,6 +183,7 @@ module wb_gpu #(
     logic signed [10:0] tri_x0, tri_x1, tri_x2;
     logic signed [9:0]  tri_y0, tri_y1, tri_y2;
     logic [7:0] tri_color;
+    logic [7:0] tri_height; // Dynamic height latched per triangle
     
     logic tri_start;   // pulse to start raster FSM
 
@@ -198,6 +196,7 @@ module wb_gpu #(
          tri_x1    <= '0; tri_y1 <= '0;
          tri_x2    <= '0; tri_y2 <= '0;
          tri_color <= '0;
+         tri_height <= '0;
          tri_start <= 1'b0;
        end else begin
          tri_start <= 1'b0;
@@ -224,8 +223,10 @@ module wb_gpu #(
      
              2'b11: begin // TRI_SUBMIT
                if (have_v0 && have_v1 && have_v2) begin
-                 tri_color <= cmd_word[29:22];
-                 tri_start <= 1'b1;
+                 tri_color  <= cmd_word[29:22];
+                 // Latch height from the next bits in the command word
+                 tri_height <= cmd_word[21:14]; 
+                 tri_start  <= 1'b1;
      
                  // consume vertices for next triangle
                  have_v0 <= 1'b0;
@@ -314,7 +315,7 @@ module wb_gpu #(
         y_d2 <= '0;
         draw_valid_d1 <= 1'b0;
         draw_valid_d2 <= 1'b0;
-        z_val_d1 <= 8'h0; // Initialize Z pipeline
+        z_val_d1 <= 8'h0; 
         z_val_d2 <= 8'h0;
       end else begin
         x_d1 <= x_cur;
@@ -324,13 +325,13 @@ module wb_gpu #(
         draw_valid_d1 <= (tri_state == T_DRAW);
         draw_valid_d2 <= draw_valid_d1;
 
-        // Read from Z-table at cycle 0 (x_cur). Valid at cycle 1 (z_val_d1).
+        // BRAM read latency: request at cycle 0, data ready at cycle 1
         if (x_cur >= 0 && x_cur < SCREEN_WIDTH)
             z_val_d1 <= z_table[x_cur];
         else
             z_val_d1 <= 8'h00; 
 
-        // Delay Z data one more cycle to align with d2 stage (final output)
+        // Delay Z data one more cycle to match coordinate d2 stage
         z_val_d2 <= z_val_d1;
       end
     end
@@ -383,113 +384,64 @@ module wb_gpu #(
              end
            end
      
-           // --------------------------
-           // SETUP0: bbox + deltas/steps
-           // --------------------------
            T_SETUP0: begin
-             // bbox
              min_x <= min3_11(tri_x0, tri_x1, tri_x2);
              max_x <= max3_11(tri_x0, tri_x1, tri_x2);
              min_y <= min3_10(tri_y0, tri_y1, tri_y2);
              max_y <= max3_10(tri_y0, tri_y1, tri_y2);
      
-             // start coords
              x_cur <= min3_11(tri_x0, tri_x1, tri_x2);
              y_cur <= min3_10(tri_y0, tri_y1, tri_y2);
      
-             // latch signed vertices (so SETUP1 uses regs, not raw)
-             x0s <= tri_x0;
-             x1s <= tri_x1;
-             x2s <= tri_x2;
-             y0s <= tri_y0;
-             y1s <= tri_y1;
-             y2s <= tri_y2;
+             x0s <= tri_x0; x1s <= tri_x1; x2s <= tri_x2;
+             y0s <= tri_y0; y1s <= tri_y1; y2s <= tri_y2;
      
-             // latch signed bbox origin (min_x/min_y are being assigned NB here,
-             // so use the same min3_* expressions again for mxs/mys)
              mxs <= min3_11(tri_x0, tri_x1, tri_x2);
              mys <= min3_10(tri_y0, tri_y1, tri_y2);
      
-             // compute deltas from the RAW values (safe in same cycle)
-             // dx = xB-xA, dy = yB-yA
-             dx01 <= tri_x1 - tri_x0;
-             dy01 <= tri_y1 - tri_y0;
+             dx01 <= tri_x1 - tri_x0; dy01 <= tri_y1 - tri_y0;
+             dx12 <= tri_x2 - tri_x1; dy12 <= tri_y2 - tri_y1;
+             dx20 <= tri_x0 - tri_x2; dy20 <= tri_y0 - tri_y2;
      
-             dx12 <= tri_x2 - tri_x1;
-             dy12 <= tri_y2 - tri_y1;
-     
-             dx20 <= tri_x0 - tri_x2;
-             dy20 <= tri_y0 - tri_y2;
-     
-             // step increments: E(x+1,y)=E(x,y)-dy  => stepX = -dy
-             //                  E(x,y+1)=E(x,y)+dx  => stepY =  dx
-             e01_stepX <= -(tri_y1 - tri_y0);
-             e01_stepY <=  (tri_x1 - tri_x0);
-     
-             e12_stepX <= -(tri_y2 - tri_y1);
-             e12_stepY <=  (tri_x2 - tri_x1);
-     
-             e20_stepX <= -(tri_y0 - tri_y2);
-             e20_stepY <=  (tri_x0 - tri_x2);
+             e01_stepX <= -(tri_y1 - tri_y0); e01_stepY <= (tri_x1 - tri_x0);
+             e12_stepX <= -(tri_y2 - tri_y1); e12_stepY <= (tri_x2 - tri_x1);
+             e20_stepX <= -(tri_y0 - tri_y2); e20_stepY <= (tri_x0 - tri_x2);
      
              tri_state <= T_SETUP1;
            end
      
-           // --------------------------
-           // SETUP1: initial edge values (multiplies once per triangle)
-           // --------------------------
            T_SETUP1: begin
-             // E(x,y) = (y-ya)*dx - (x-xa)*dy, evaluated at bbox origin (mxs,mys)
              e01_row <= ( (mys - y0s) * dx01 ) - ( (mxs - x0s) * dy01 );
              e12_row <= ( (mys - y1s) * dx12 ) - ( (mxs - x1s) * dy12 );
              e20_row <= ( (mys - y2s) * dx20 ) - ( (mxs - x2s) * dy20 );
      
-             // current edges start at row start
              e01 <= ( (mys - y0s) * dx01 ) - ( (mxs - x0s) * dy01 );
              e12 <= ( (mys - y1s) * dx12 ) - ( (mxs - x1s) * dy12 );
              e20 <= ( (mys - y2s) * dx20 ) - ( (mxs - x2s) * dy20 );
      
-             // init row_base for y_cur (which is min_y)
-             // row_base = y*320 = (y<<8) + (y<<6)
              row_base <= ({7'b0, min3_10(tri_y0, tri_y1, tri_y2)} << 8) +
                          ({7'b0, min3_10(tri_y0, tri_y1, tri_y2)} << 6);
      
              tri_state <= T_DRAW;
            end
      
-           // --------------------------
-           // DRAW: bbox scan, incremental edge update (adds only)
-           // --------------------------
            T_DRAW: begin
              if (x_cur == max_x) begin
-               // end of row -> reset x, advance y
                x_cur <= min_x;
-     
                if (y_cur == max_y) begin
                  tri_state <= T_IDLE;
                end else begin
                  y_cur <= y_cur + 1;
-     
-                 // advance row start edges by one y step
                  e01_row <= e01_row + e01_stepY;
                  e12_row <= e12_row + e12_stepY;
                  e20_row <= e20_row + e20_stepY;
-     
-                 // reset current edges to next row start
-                 // NOTE: use old e*_row + stepY because NB updates happen end-of-cycle
                  e01 <= e01_row + e01_stepY;
                  e12 <= e12_row + e12_stepY;
                  e20 <= e20_row + e20_stepY;
-     
-                 // update row_base for next y
-                 // row_base_next = row_base + 320
                  row_base <= row_base + 17'd320;
                end
              end else begin
-               // next x in same row
                x_cur <= x_cur + 1;
-     
-               // advance edges across x: add stepX
                e01 <= e01 + e01_stepX;
                e12 <= e12 + e12_stepX;
                e20 <= e20 + e20_stepX;
@@ -507,11 +459,10 @@ module wb_gpu #(
        tri_wr_data = tri_color;
      
        if (draw_valid_d2) begin
-         // simple screen bounds clip (bbox might already be in range; still safe)
          if (x_d2 >= 0 && x_d2 < $signed({2'b0, SCREEN_WIDTH[8:0]}) && y_d2 >= 0 && y_d2 < 240) begin
            if (inside_tri_reg) begin
-             // Depth Test: Only write pixel if triangle height is greater (closer) than wall height
-             if (TEST_TRI_HEIGHT >= z_val_d2) begin
+             // Dynamic Depth Test: Compare latched tri_height against current Z-table value
+             if (tri_height >= z_val_d2) begin
                 tri_wr_en   = 1'b1;
                 tri_wr_adr  = row_base_d2 + 17'(x_d2);
                 tri_wr_data = tri_color;
@@ -522,12 +473,10 @@ module wb_gpu #(
      end
 
     always_comb begin
-       // default: raycast drives
        wr_en  = rc_wr_en;
        wr_adr = rc_wr_adr;
        data   = rc_wr_data;
      
-       // overlay triangle writes on top if enabled
        if (overlay_en_gpu && tri_wr_en) begin
          wr_en  = tri_wr_en;
          wr_adr = tri_wr_adr;

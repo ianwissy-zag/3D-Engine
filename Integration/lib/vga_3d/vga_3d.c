@@ -82,7 +82,7 @@ bool send_point_cmd(point_t data, uint8_t idx) {
     return true;
 }
 
-bool send_color_cmd(uint8_t data) {
+bool send_color_cmd(uint8_t data, uint8_t height_data) {
     // See if there is room in the Command FIFO
     if (is_fifo_full()) {
         return false;
@@ -93,10 +93,11 @@ bool send_color_cmd(uint8_t data) {
 
     // Prepare Command Register fields
     volatile uint32_t color = ((uint32_t) data << VGA_CMD_COLOR_OFFSET) & VGA_CMD_COLOR_MASK;
+    volatile uint32_t height = ((uint32_t) height_data << VGA_CMD_HEIGHT_OFFSET) & VGA_CMD_HEIGHT_MASK;
     volatile uint32_t op = ((uint32_t) VGA_CMD_OP_COLOR << VGA_CMD_OP_OFFSET) & VGA_CMD_OP_MASK;
 
     // Compile data to be written to the Command Register
-    volatile uint32_t reg = op | color;
+    volatile uint32_t reg = op | color | height;
 
     // Write to the GPU
     WRITE_REG(addr, reg);
@@ -133,14 +134,14 @@ bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height) {
 }
 
 // TODO: This is placeholder code for drawing triangles on the screen. Not super nice...
-bool draw_triangle(triangle_t tri, uint8_t color) {
+bool draw_triangle(triangle_t tri, uint8_t color, uint8_t height) {
     // Send point data
     while (!send_point_cmd(tri.a, 0));
     while (!send_point_cmd(tri.b, 1));
     while (!send_point_cmd(tri.c, 2));
 
     // Send color data which tells GPU to start drawing the triangle
-    while (!send_color_cmd(color));
+    while (!send_color_cmd(color, height));
 
     return true;
 }
