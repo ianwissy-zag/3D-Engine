@@ -18,9 +18,15 @@ module wb_gpu #(
     output logic                wr_en,
     output logic [16:0]         wr_adr,
     output logic [7:0]          data
-    
 );
-        
+    
+    // Z-table storage: 1D array storing wall heights per column (320 entries)
+    logic [7:0] z_table [0:SCREEN_WIDTH-1];
+    // Pipeline registers to align Z-data with the triangle rasterizer's d2 stage
+    logic [7:0] z_val_d1, z_val_d2;
+    // Temporary constant for testing triangle depth
+    localparam logic [7:0] TEST_TRI_HEIGHT = 8'd200;
+
     logic        rc_wr_en;
     logic [16:0] rc_wr_adr;
     logic [7:0]  rc_wr_data;
@@ -51,6 +57,13 @@ module wb_gpu #(
     logic new_data_pulse;
     assign new_data_pulse = gpu_toggle ^ gpu_toggle_d1;
 
+    // Write to Z-table: update height for the current column when raycaster finishes
+    always_ff @(posedge gpu_clk) begin
+        if (new_data_pulse) begin
+            z_table[gpu_column] <= gpu_height;
+        end
+    end
+
     logic prim_mode_en_meta, prim_mode_en_gpu;
     logic overlay_en_meta,   overlay_en_gpu;
     
@@ -77,14 +90,14 @@ module wb_gpu #(
     always_ff @(posedge gpu_clk) begin
         if (gpu_rst) begin
             current_state <= IDLE;
-            rc_wr_en         <= 1'b0;
-            y_cnt         <= 0;
+            rc_wr_en          <= 1'b0;
+            y_cnt          <= 0;
         end else begin
             case (current_state)
                 IDLE: begin
                     rc_wr_en <= 1'b0;
                     if (new_data_pulse) begin
-                        y_cnt         <= 0;
+                        y_cnt          <= 0;
                         wall_top      <= (CENTER_ROW > (gpu_height >> 1)) ? (CENTER_ROW - (gpu_height >> 1)) : 0;
                         wall_bottom   <= (CENTER_ROW + (gpu_height >> 1));
                         current_state <= DRAW;
@@ -301,6 +314,8 @@ module wb_gpu #(
         y_d2 <= '0;
         draw_valid_d1 <= 1'b0;
         draw_valid_d2 <= 1'b0;
+        z_val_d1 <= 8'h0; // Initialize Z pipeline
+        z_val_d2 <= 8'h0;
       end else begin
         x_d1 <= x_cur;
         x_d2 <= x_d1;
@@ -308,6 +323,15 @@ module wb_gpu #(
         y_d2 <= y_d1;
         draw_valid_d1 <= (tri_state == T_DRAW);
         draw_valid_d2 <= draw_valid_d1;
+
+        // Read from Z-table at cycle 0 (x_cur). Valid at cycle 1 (z_val_d1).
+        if (x_cur >= 0 && x_cur < SCREEN_WIDTH)
+            z_val_d1 <= z_table[x_cur];
+        else
+            z_val_d1 <= 8'h00; 
+
+        // Delay Z data one more cycle to align with d2 stage (final output)
+        z_val_d2 <= z_val_d1;
       end
     end
 
@@ -486,9 +510,12 @@ module wb_gpu #(
          // simple screen bounds clip (bbox might already be in range; still safe)
          if (x_d2 >= 0 && x_d2 < $signed({2'b0, SCREEN_WIDTH[8:0]}) && y_d2 >= 0 && y_d2 < 240) begin
            if (inside_tri_reg) begin
-             tri_wr_en   = 1'b1;
-             tri_wr_adr  = row_base_d2 + 17'(x_d2);
-             tri_wr_data = tri_color;
+             // Depth Test: Only write pixel if triangle height is greater (closer) than wall height
+             if (TEST_TRI_HEIGHT >= z_val_d2) begin
+                tri_wr_en   = 1'b1;
+                tri_wr_adr  = row_base_d2 + 17'(x_d2);
+                tri_wr_data = tri_color;
+             end
            end
          end
        end
