@@ -11,6 +11,8 @@
 #define GPU_CFD_ADR  0x80001508 
 #define MTIME_ADR    0x80001020 /* SweRVolf core timer (lower 32 bits) */
 
+#define MAX_CUBES    32
+
 static inline uint32_t get_time() {
     return READ_REG(MTIME_ADR);
 }
@@ -20,8 +22,8 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
     {R,R,0,R,0,0,P,0,R,R},
     {R,0,0,R,0,0,0,0,0,R},
     {R,0,0,R,R,R,R,0,0,R},
-    {R,2,0,0,0,0,0,0,0,R},
-    {R,2,0,0,0,0,0,0,2,R},
+    {R,2,2,2,0,0,0,0,0,R},
+    {R,2,2,2,0,0,0,0,2,R},
     {R,0,0,R,0,0,R,R,R,R},
     {R,0,0,0,0,0,0,0,0,R},
     {R,R,0,0,0,0,0,0,R,R},
@@ -37,8 +39,6 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
     {R,R,0,0,0,0,0,0,R,R},
     {R,R,R,R,R,R,R,R,R,R}
 };
-
-int NumCubes = 1;
 
 CubeRenderData Cubes[40];
 
@@ -94,7 +94,7 @@ int main() {
 
         updateRaycaster();
 
-        int found_cubes = get_cubes_camera_offsets(Cubes, 40); 
+        int found_cubes = get_cubes_camera_offsets(Cubes, MAX_CUBES); 
 
         sort_cubes(Cubes, found_cubes);
 
