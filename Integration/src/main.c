@@ -20,8 +20,8 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
     {R,R,0,R,0,0,P,0,R,R},
     {R,0,0,R,0,0,0,0,0,R},
     {R,0,0,R,R,R,R,0,0,R},
-    {R,0,0,0,0,0,0,0,0,R},
-    {R,0,0,0,0,0,0,0,2,R},
+    {R,2,0,0,0,0,0,0,0,R},
+    {R,2,0,0,0,0,0,0,2,R},
     {R,0,0,R,0,0,R,R,R,R},
     {R,0,0,0,0,0,0,0,0,R},
     {R,R,0,0,0,0,0,0,R,R},
@@ -37,6 +37,10 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
     {R,R,0,0,0,0,0,0,R,R},
     {R,R,R,R,R,R,R,R,R,R}
 };
+
+int NumCubes = 1;
+
+CubeRenderData Cubes[40];
 
 /* Program toggles */
 char gameIsRunning = TRUE;
@@ -90,13 +94,13 @@ int main() {
 
         updateRaycaster();
 
-        int32_t dyn_offset_x = 0;
-        int32_t dyn_offset_y = 0;
-        int32_t height = 0;
+        int found_cubes = get_cubes_camera_offsets(Cubes, 40); 
 
-        get_cube_camera_offsets(&dyn_offset_x, &dyn_offset_y, &height);
+        sort_cubes(Cubes, found_cubes);
 
-        render_cube(yaw, pitch, roll, dyn_offset_x, dyn_offset_y, UNIT/4, (uint32_t)height);
+        for (int i = 0; i < found_cubes; i++) {
+            render_cube(yaw, pitch, roll, Cubes[i].offset_x, Cubes[i].offset_y, UNIT/4, (uint32_t)Cubes[i].height);
+        }
 
         yaw += 1;
         pitch += 1;

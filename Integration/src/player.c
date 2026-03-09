@@ -35,6 +35,7 @@ char movingBack       = FALSE;
 char turningLeft      = FALSE;
 char turningRight     = FALSE;
 
+
 void rotatePlayer(int direction, fixed32 dt_mult) {
     fixed32 fp_rot_speed = TO_FP(ROT_SPEED_INT);
     fixed32 rot_amt = MUL_FP(fp_rot_speed, dt_mult) * direction;
@@ -122,49 +123,66 @@ void initPlayer() {
     }
 }
 
-void get_cube_camera_offsets(int32_t *offset_x, int32_t *offset_y, int32_t *height) {
-    int row, col;
-    fixed32 cubeX = 0;
-    fixed32 cubeY = 0;
-    char found = 0;
-
-    for (row = 0; row < MAP_GRID_HEIGHT; row++) {
-        for (col = 0; col < MAP_GRID_WIDTH; col++) {
-            if (MAP[row][col] == 2) {
-                cubeX = TO_FP((WALL_SIZE * col) + (WALL_SIZE / 2));
-                cubeY = TO_FP((WALL_SIZE * row) + (WALL_SIZE / 2));
-                found = 1;
-                break;
-            }
-        }
-        if (found) break;
-    }
-
-    fixed32 dx = cubeX - fpPlayerPosX;
-    fixed32 dy = cubeY - fpPlayerPosY;
-
+int get_cubes_camera_offsets(CubeRenderData* cubes, int max_cubes) {
+    int cube_count = 0;
+    
     fixed32 cos_a = COS_LUT[playerAngleIndex];
     fixed32 sin_a = SIN_LUT[playerAngleIndex];
 
-    // Calculate rotated distances (in 16.16 map pixels)
-    fixed32 forward_dist = (fixed32)(((int64_t)dx * cos_a + (int64_t)dy * sin_a) >> 16);
-    fixed32 right_dist = (fixed32)(((int64_t)dx * (-sin_a) + (int64_t)dy * cos_a) >> 16);
+    for (int row = 0; row < MAP_GRID_HEIGHT; row++) {
+        for (int col = 0; col < MAP_GRID_WIDTH; col++) {
+            
+            if (MAP[row][col] == 2) {
+                
+                if (cube_count >= max_cubes) {
+                    return cube_count; 
+                }
 
-    // Convert to 16.16 tiles (Your original, correct method!)
-    fixed32 perpWallDist = forward_dist / WALL_SIZE; 
+                fixed32 cubeX = TO_FP((WALL_SIZE * col) + (WALL_SIZE / 2));
+                fixed32 cubeY = TO_FP((WALL_SIZE * row) + (WALL_SIZE / 2));
+
+                fixed32 dx = cubeX - fpPlayerPosX;
+                fixed32 dy = cubeY - fpPlayerPosY;
+
+                fixed32 forward_dist = (fixed32)(((int64_t)dx * cos_a + (int64_t)dy * sin_a) >> 16);
+                
+                if (forward_dist <= 0) {
+                    continue; 
+                }
+
+                fixed32 right_dist = (fixed32)(((int64_t)dx * (-sin_a) + (int64_t)dy * cos_a) >> 16);
+
+                fixed32 perpWallDist = forward_dist / WALL_SIZE; 
+                
+                if (perpWallDist <= 2048) perpWallDist = 2048; 
+
+                int calc_height = (240 << 16) / perpWallDist;
+
+                if (calc_height > 255) calc_height = 255;
+                if (calc_height < 0) calc_height = 0;
+
+                cubes[cube_count].height = calc_height;
+                cubes[cube_count].offset_y = (forward_dist / WALL_SIZE) >> 8;
+                cubes[cube_count].offset_x = (right_dist / WALL_SIZE) >> 8;
+
+                cube_count++;
+            }
+        }
+    }
     
-    // Safety check: Clamp distance if player walks completely inside the cube's origin
-    if (perpWallDist <= 2048) perpWallDist = 2048; 
+    return cube_count;
+}
 
-    // Calculate height matches raycaster exactly
-    int calc_height = (240 << 16) / perpWallDist;
+void sort_cubes(CubeRenderData* cubes, int count) {
+    for (int i = 1; i < count; i++) {
+        CubeRenderData current_cube = cubes[i];
+        int j = i - 1;
 
-    // STRICT 8-BIT CLAMP: Prevents hardware wraparound
-    if (calc_height > 255) calc_height = 255;
-    if (calc_height < 0) calc_height = 0;
-    *height = calc_height;
-
-    // Output offsets for the 3D renderer
-    *offset_y = (forward_dist / WALL_SIZE) >> 8;
-    *offset_x = (right_dist / WALL_SIZE) >> 8;
+        while (j >= 0 && cubes[j].height > current_cube.height) {
+            cubes[j + 1] = cubes[j];
+            j--;
+        }
+        
+        cubes[j + 1] = current_cube;
+    }
 }

@@ -10,6 +10,12 @@ extern char turningLeft;
 extern char turningRight;
 extern char playerIsRunning;
 
+typedef struct {
+    int32_t offset_x;
+    int32_t offset_y;
+    int32_t height;
+} CubeRenderData;
+
 #ifndef FIXED32_DEFINED
 #define FIXED32_DEFINED
 typedef int32_t fixed32;
@@ -52,6 +58,8 @@ void movePlayer(fixed32 dx, fixed32 dy);
 int clipMovement(fixed32 dx, fixed32 dy);
 
 
-void get_cube_camera_offsets(int32_t *offset_x, int32_t *offset_y, int32_t *height);
+int get_cubes_camera_offsets(CubeRenderData* cubes, int max_cubes);
+
+void sort_cubes(CubeRenderData* cubes, int count);
 
 #endif /* PLAYER_H */
