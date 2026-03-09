@@ -45,6 +45,6 @@ typedef struct {
  * * NOTE: Ensure you remove the `static` keyword from render_cube 
  * in your .c file so it can be linked externally!
  */
-void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int32_t offset_y, int32_t offset_z);
+void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int32_t offset_y, int32_t offset_z, uint32_t height);
 
 #endif // RENDER_3D_H

@@ -146,21 +146,25 @@ void get_cube_camera_offsets(int32_t *offset_x, int32_t *offset_y, int32_t *heig
     fixed32 cos_a = COS_LUT[playerAngleIndex];
     fixed32 sin_a = SIN_LUT[playerAngleIndex];
 
-    // Calculate the rotated distances (still in 16.16 map scale)
+    // Calculate rotated distances (in 16.16 map pixels)
     fixed32 forward_dist = (fixed32)(((int64_t)dx * cos_a + (int64_t)dy * sin_a) >> 16);
     fixed32 right_dist = (fixed32)(((int64_t)dx * (-sin_a) + (int64_t)dy * cos_a) >> 16);
 
-    // Calculate height based on perpendicular distance (forward_dist)
-    fixed32 perpWallDist = forward_dist / WALL_SIZE;
-    if (perpWallDist <= 0) perpWallDist = 1;
+    // Convert to 16.16 tiles (Your original, correct method!)
+    fixed32 perpWallDist = forward_dist / WALL_SIZE; 
+    
+    // Safety check: Clamp distance if player walks completely inside the cube's origin
+    if (perpWallDist <= 2048) perpWallDist = 2048; 
+
+    // Calculate height matches raycaster exactly
     int calc_height = (240 << 16) / perpWallDist;
 
+    // STRICT 8-BIT CLAMP: Prevents hardware wraparound
     if (calc_height > 255) calc_height = 255;
     if (calc_height < 0) calc_height = 0;
     *height = calc_height;
 
-    // Divide by WALL_SIZE to normalize to 1 map tile = 1 3D UNIT
-    // Then shift by 8 to convert from 16.16 to the 3D engine's 8.8 format
+    // Output offsets for the 3D renderer
     *offset_y = (forward_dist / WALL_SIZE) >> 8;
     *offset_x = (right_dist / WALL_SIZE) >> 8;
 }

@@ -62,6 +62,7 @@ void readInputs(){
         
     return;
 }
+
 int main() {
     initPlayer();
     uint8_t yaw = 0;
@@ -95,7 +96,7 @@ int main() {
 
         get_cube_camera_offsets(&dyn_offset_x, &dyn_offset_y, &height);
 
-        render_cube(yaw, pitch, roll, dyn_offset_x, dyn_offset_y, UNIT/4, height);
+        render_cube(yaw, pitch, roll, dyn_offset_x, dyn_offset_y, UNIT/4, (uint32_t)height);
 
         yaw += 1;
         pitch += 1;

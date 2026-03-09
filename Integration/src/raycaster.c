@@ -88,7 +88,7 @@ void run_integer_raycast() {
                 mapY += stepY;
                 side = 1;
             }
-            if (MAP[mapY][mapX] > 0) break;
+            if (MAP[mapY][mapX] == 1) break;
         }
 
         // --- Distance Calculation ---

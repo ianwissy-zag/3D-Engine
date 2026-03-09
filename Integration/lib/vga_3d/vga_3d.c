@@ -82,7 +82,7 @@ bool send_point_cmd(point_t data, uint8_t idx) {
     return true;
 }
 
-bool send_color_cmd(uint8_t data, uint8_t height_data) {
+bool send_color_cmd(uint8_t data, uint32_t height_data) {
     // See if there is room in the Command FIFO
     if (is_fifo_full()) {
         return false;
@@ -91,9 +91,14 @@ bool send_color_cmd(uint8_t data, uint8_t height_data) {
     // Target the GPU Command Register
     volatile uint32_t addr = VGA_BASEADDR + VGA_CMD_REG;
 
+    // Clamp the height to prevent overflow artifacts in the depth test
+    if (height_data > VGA_SCREEN_HEIGHT) {
+        height_data = VGA_SCREEN_HEIGHT;
+    }
+
     // Prepare Command Register fields
     volatile uint32_t color = ((uint32_t) data << VGA_CMD_COLOR_OFFSET) & VGA_CMD_COLOR_MASK;
-    volatile uint32_t height = ((uint32_t) height_data << VGA_CMD_HEIGHT_OFFSET) & VGA_CMD_HEIGHT_MASK;
+    volatile uint32_t height = (height_data << VGA_CMD_HEIGHT_OFFSET) & VGA_CMD_HEIGHT_MASK;
     volatile uint32_t op = ((uint32_t) VGA_CMD_OP_COLOR << VGA_CMD_OP_OFFSET) & VGA_CMD_OP_MASK;
 
     // Compile data to be written to the Command Register

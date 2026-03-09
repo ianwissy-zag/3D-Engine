@@ -154,7 +154,7 @@ bool send_point_cmd(point_t p, uint8_t idx);
  * * @return   Returns true if the color data was sent successfully. Returns false if the 3D Command FIFO
  * is full and can't accept more commands at the moment.
  */
-bool send_color_cmd(uint8_t color, uint8_t height);
+bool send_color_cmd(uint8_t data, uint32_t height_data);
 
 /**
  * @brief   send_column_cmd() sends a y-centered column to be drawn on the screen.
