@@ -99,11 +99,11 @@ int main() {
         sort_cubes(Cubes, found_cubes);
 
         for (int i = 0; i < found_cubes; i++) {
-            render_cube(yaw, pitch, roll, Cubes[i].offset_x, Cubes[i].offset_y, UNIT/4, (uint32_t)Cubes[i].height);
+            render_cube(playerAngleIndex + yaw, pitch, roll, Cubes[i].offset_x, Cubes[i].offset_y, UNIT/4, (uint32_t)Cubes[i].height);
         }
 
-        yaw += 1;
-        pitch += 1;
+        yaw += 0;
+        pitch += 0;
         roll += 0;
 
         WRITE_REG(GPU_CFD_ADR, 1);

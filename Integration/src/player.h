@@ -16,6 +16,8 @@ typedef struct {
     int32_t height;
 } CubeRenderData;
 
+extern uint8_t playerAngleIndex;
+
 #ifndef FIXED32_DEFINED
 #define FIXED32_DEFINED
 typedef int32_t fixed32;
