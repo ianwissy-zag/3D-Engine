@@ -21,7 +21,7 @@ extern char playerIsRunning;
 
 extern uint8_t playerAngleIndex;
 
-/* --- UNIFIED STRUCT --- */
+// This structure contains all location data about cubes 
 typedef struct {
     bool active;        // TRUE if this slot is in use
     

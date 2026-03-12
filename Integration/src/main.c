@@ -97,7 +97,8 @@ int main() {
         for (int i = 0; i < found_cubes; i++) { 
             render_cube(visibleList[i]);
         }
-
+        
+        // Moving one of the cubes (It is difficult currently to choose a specific cube to move.)
         world_cubes[0].x += 10000;
 
         WRITE_REG(GPU_CFD_ADR, 1);
