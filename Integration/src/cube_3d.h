@@ -19,7 +19,7 @@
 #define SCREEN_CY (SCREEN_H / 2)
 
 #define FOCAL_LEN (((160 * 65536) + (37837 / 2)) / 37837)
-#define NEAR_CLIP (UNIT / 4)
+#define NEAR_CLIP (UNIT / 2 - UNIT / 8)
 
 /*
  * Mesh data structures
