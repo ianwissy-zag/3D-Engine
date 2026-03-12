@@ -11,8 +11,6 @@
 #define GPU_CFD_ADR  0x80001508 
 #define MTIME_ADR    0x80001020 /* SweRVolf core timer (lower 32 bits) */
 
-#define MAX_CUBES    32
-
 static inline uint32_t get_time() {
     return READ_REG(MTIME_ADR);
 }
@@ -40,9 +38,10 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
     {R,R,R,R,R,R,R,R,R,R}
 };
 
-CubeRenderData Cubes[40];
+// These are only the cubes that are active, as subeset of total cubes created on game start
+CubeEntity* visibleList[MAX_ACTIVE_CUBES];
+extern CubeEntity world_cubes[MAX_ACTIVE_CUBES];
 
-/* Program toggles */
 char gameIsRunning = TRUE;
 
 void readInputs(){
@@ -69,9 +68,7 @@ void readInputs(){
 
 int main() {
     initPlayer();
-    uint8_t yaw = 0;
-    uint8_t pitch = 0;
-    uint8_t roll = 0;
+    init_entities();
 
     set_control_reg(true, true);
 
@@ -91,20 +88,17 @@ int main() {
         readInputs();
 
         updatePlayer(dt_mult);
-
         updateRaycaster();
 
-        int found_cubes = get_cubes_camera_offsets(Cubes, MAX_CUBES); 
+        // Pass the pointer array here to get a sorted view of the active cubes
+        int found_cubes = get_cubes_camera_offsets(visibleList, MAX_ACTIVE_CUBES); 
+        sort_cubes(visibleList, found_cubes);
 
-        sort_cubes(Cubes, found_cubes);
-
-        for (int i = 0; i < found_cubes; i++) {
-            render_cube(playerAngleIndex + yaw, pitch, roll, Cubes[i].offset_x, Cubes[i].offset_y, UNIT/4, (uint32_t)Cubes[i].height);
+        for (int i = 0; i < found_cubes; i++) { 
+            render_cube(visibleList[i]);
         }
 
-        yaw += 0;
-        pitch += 0;
-        roll += 0;
+        world_cubes[0].x += 10000;
 
         WRITE_REG(GPU_CFD_ADR, 1);
         while(1){

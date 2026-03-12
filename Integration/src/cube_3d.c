@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <vga_3d.h>
 #include "cube_3d.h"
+#include "player.h"
 
 #define CAMERA_X 0
 #define CAMERA_Y 0
@@ -13,8 +14,6 @@ static int32_t fx_mul(int32_t a, int32_t b) {
     return ((int64_t)(a * b)) >> FIX_SHIFT;
 }
 
-/* * Trig LUT (scaled by 256)
- */
 static int16_t sin_qtr[65] = {
     0, 6, 13, 19, 25, 31, 38, 44, 50, 56, 62, 68, 74,
     80, 86, 92, 98, 104, 109, 115, 121, 126, 132, 137, 142, 147,
@@ -23,10 +22,9 @@ static int16_t sin_qtr[65] = {
     245, 247, 248, 250, 251, 252, 253, 254, 255, 255, 256, 256, 256
 };
 
-// 0 = 0 degrees, 255 = just before 360 degree
 static int16_t sin_u8(uint8_t angle) {
-    uint8_t quadrant = angle >> 6; // quadrant
-    uint8_t offset = angle & 0x3F; // remaining bits
+    uint8_t quadrant = angle >> 6; 
+    uint8_t offset = angle & 0x3F; 
 
     switch (quadrant) {
         case 0: return sin_qtr[offset];
@@ -39,10 +37,6 @@ static int16_t sin_u8(uint8_t angle) {
 static int16_t cos_u8(uint8_t angle) {
     return sin_u8((uint8_t)(angle + 64));
 }
-
-/*
- * Transformation helpers
- */
 
 static vec3_t rotate_x(vec3_t v, uint8_t angle) {
     int16_t s = sin_u8(angle);
@@ -85,7 +79,6 @@ static vec3_t cross3(vec3_t a, vec3_t b) {
     return out;
 }
 
-// TODO: This will just delete points that are off screen, need to adjust them instead
 static bool project_point(vec3_t v, point_t *out) {
     if (v.y <= NEAR_CLIP) {
         return false; 
@@ -99,9 +92,6 @@ static bool project_point(vec3_t v, point_t *out) {
     return true;
 }
 
-/*
- * 3D object definition 
- */
 static vec3_t cube_vertices[8] = {
     { -CUBE_HALF, -CUBE_HALF, -CUBE_HALF },
     { CUBE_HALF, -CUBE_HALF, -CUBE_HALF },
@@ -113,21 +103,15 @@ static vec3_t cube_vertices[8] = {
     { -CUBE_HALF, CUBE_HALF, CUBE_HALF }
 };
 
-// TODO: Look at the color format in hardware
-// Face winding is outward-facing
 static face_t cube_faces[6] = {
     { 3, 7, 6, 2, 0xFF }, // front (+Y)
     { 0, 1, 5, 4, 0xF0 }, // back (-Y)
     { 1, 2, 6, 5, 0x0F }, // right (+X)
     { 0, 4, 7, 3, 0xF8 }, // left (-X)
     { 4, 5, 6, 7, 0x8F }, // top (+Z)
-    { 0, 3, 2, 1, 0x88 } // bottom (-Z)
+    { 0, 3, 2, 1, 0x88 }  // bottom (-Z)
 };
 
-/*
- * Rendering
- */
- // TODO: This is probably not very robust, may need fixing
 static bool face_is_visible(vec3_t *v0, vec3_t *v1, vec3_t *v2) {
     vec3_t u = { v1->x - v0->x, v1->y - v0->y, v1->z - v0->z };
     vec3_t v = { v2->x - v0->x, v2->y - v0->y, v2->z - v0->z };
@@ -147,7 +131,6 @@ static bool face_is_visible(vec3_t *v0, vec3_t *v1, vec3_t *v2) {
 }
 
 static void sort_faces_back_to_front(draw_face_t *list, uint8_t count) {
-    // TODO: Bubble sort but probably fine? Optimize if needed
     for (uint8_t i = 0; i < count; i++) {
         for (uint8_t j = 0; j + 1 < count; j++) {
             if (list[j].depth < list[j + 1].depth) {
@@ -159,7 +142,7 @@ static void sort_faces_back_to_front(draw_face_t *list, uint8_t count) {
     }
 }
 
-void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int32_t offset_y, int32_t offset_z, uint32_t height) {
+void render_cube(CubeEntity* cube) {
     vec3_t cam_space[8];
     point_t screen_pts[8];
     bool projected[8];
@@ -167,13 +150,13 @@ void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int
     int32_t safe_radius = CUBE_HALF * 2; 
 
     // Check if behind the camera
-    if (offset_y < -safe_radius) {
+    if (cube->offset_y < -safe_radius) {
         return; 
     }
 
     // Check if in the frontal cone
-    int32_t abs_x = (offset_x < 0) ? -offset_x : offset_x;
-    if ((offset_y + safe_radius) * SCREEN_CX < abs_x * FOCAL_LEN) {
+    int32_t abs_x = (cube->offset_x < 0) ? -cube->offset_x : cube->offset_x;
+    if ((cube->offset_y + safe_radius) * SCREEN_CX < abs_x * FOCAL_LEN) {
         return; 
     }
 
@@ -181,13 +164,21 @@ void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int
     for (uint8_t i = 0; i < 8; i++) {
         vec3_t v = cube_vertices[i];
 
-        v = rotate_z(v, yaw);
-        v = rotate_x(v, pitch);
-        v = rotate_y(v, roll);
+       //  Apply rotations directly from the entity (Local Space)
+        v = rotate_z(v, cube->yaw);
+        v = rotate_x(v, cube->pitch);
+        v = rotate_y(v, cube->roll);
 
-        v.x += offset_x;
-        v.y += offset_y;
-        v.z += offset_z;
+        // Counter-rotate the vertices by the POSITIVE player angle 
+        // to cancel out the camera rotation and lock the cube to the world grid.
+        v = rotate_z(v, playerAngleIndex);
+
+        // Apply camera-space offsets
+        v.x += cube->offset_x;
+        v.y += cube->offset_y;
+        
+        // Apply Z height
+        v.z += (cube->z >> 16); 
 
         v.x -= CAMERA_X;
         v.y -= CAMERA_Y;
@@ -209,7 +200,6 @@ void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int
         vec3_t *v2 = &cam_space[face->i2];
         vec3_t *v3 = &cam_space[face->i3];
 
-        // TODO: Proper clipping?
         if (v0->y <= NEAR_CLIP || v1->y <= NEAR_CLIP ||
             v2->y <= NEAR_CLIP || v3->y <= NEAR_CLIP) {
             continue;
@@ -226,11 +216,11 @@ void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int
 
         draw_list[draw_count].face_idx = f;
         draw_list[draw_count].depth =
-        (v0->y + v1->y + v2->y + v3->y) >> 2; // average depth
+        (v0->y + v1->y + v2->y + v3->y) >> 2; 
         draw_count++;
     }
 
-    // Painter's Algorithm
+    // Painter's Algorithm for the cube's internal faces
     sort_faces_back_to_front(draw_list, draw_count);
 
     // Draw the visible faces
@@ -248,9 +238,8 @@ void render_cube(uint8_t yaw, uint8_t pitch, uint8_t roll, int32_t offset_x, int
             screen_pts[face->i2],
             screen_pts[face->i3]
         };
-
-        // Passing height as the third argument
-        draw_triangle(t0, face->color, height);
-        draw_triangle(t1, face->color, height);
+        
+        draw_triangle(t0, face->color, cube->height >> 16);
+        draw_triangle(t1, face->color, cube->height >> 16);
     }
 }
