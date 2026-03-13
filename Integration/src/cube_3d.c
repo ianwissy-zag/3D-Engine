@@ -165,13 +165,9 @@ void render_cube(CubeEntity* cube) {
         vec3_t v = cube_vertices[i];
 
        //  Apply rotations directly from the entity (Local Space)
-        v = rotate_z(v, cube->yaw);
+        v = rotate_z(v, cube->yaw + playerAngleIndex); // Keep cube rotation in world space using player angle
         v = rotate_x(v, cube->pitch);
         v = rotate_y(v, cube->roll);
-
-        // Counter-rotate the vertices by the POSITIVE player angle 
-        // to cancel out the camera rotation and lock the cube to the world grid.
-        v = rotate_z(v, playerAngleIndex);
 
         // Apply camera-space offsets
         v.x += cube->offset_x;
