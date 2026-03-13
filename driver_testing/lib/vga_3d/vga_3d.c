@@ -82,7 +82,7 @@ bool send_point_cmd(point_t data, uint8_t idx) {
     return true;
 }
 
-bool send_color_cmd(uint8_t data) {
+bool send_color_cmd(uint16_t data) {
     // See if there is room in the Command FIFO
     if (is_fifo_full()) {
         return false;
@@ -132,8 +132,7 @@ bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height) {
     return true;
 }
 
-// TODO: This is placeholder code for drawing triangles on the screen. Not super nice...
-bool draw_triangle(triangle_t tri, uint8_t color) {
+bool draw_triangle(triangle_t tri, uint16_t color) {
     // Send point data
     while (!send_point_cmd(tri.a, 0));
     while (!send_point_cmd(tri.b, 1));
