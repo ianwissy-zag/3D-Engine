@@ -32,6 +32,11 @@ typedef struct {
     uint8_t yaw;
     uint8_t pitch;
     uint8_t roll;
+    uint8_t dyaw;
+    uint8_t dpitch;
+    uint8_t droll;
+    fixed32 dx;
+    fixed32 dy;
 
     // Transient Rendering Data (Calculated fresh every frame)
     fixed32 height;     // Screen height/scale
@@ -48,7 +53,7 @@ void rotatePlayer(int direction, fixed32 dt_mult);
 void updatePlayer(fixed32 dt_mult);
 void movePlayer(fixed32 dx, fixed32 dy);
 int clipMovement(fixed32 dx, fixed32 dy);
-
+void update_cubes();
 void init_entities();
 int get_cubes_camera_offsets(CubeEntity** visible_cubes, int max_cubes);
 void sort_cubes(CubeEntity** visible_cubes, int count);

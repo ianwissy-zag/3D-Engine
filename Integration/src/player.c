@@ -23,6 +23,7 @@
 /* --- Constants --- */
 #define PLAYER_SIZE_FP             (PLAYER_SIZE * 65536)         
 #define PLAYER_MOVEMENT_SPEED_FP   (PLAYER_MOVEMENT_SPEED * 65536)
+#define CUBE_SIZE_FP               (CUBE_SIZE * 65536)
 
 // Lookup tables for trig functions, pre-calculated for 256 angles (0-255)
 extern const int32_t SIN_LUT[];
@@ -140,6 +141,62 @@ void initPlayer() {
     }
 }
 
+
+int check_cube_collision(fixed32 newx, fixed32 newy) {
+    // Map the cube's bounding box corners to the grid array indices
+    int x1 = FROM_FP(newx - CUBE_SIZE_FP) / WALL_SIZE;
+    int y1 = FROM_FP(newy - CUBE_SIZE_FP) / WALL_SIZE;
+    int x2 = FROM_FP(newx + CUBE_SIZE_FP) / WALL_SIZE;
+    int y2 = FROM_FP(newy + CUBE_SIZE_FP) / WALL_SIZE;
+    
+    // Check all grid cells the bounding box overlaps
+    for(int i = y1; i <= y2; i++) {
+        for(int j = x1; j <= x2; j++) {
+            // If out of bounds or hitting a wall block (1)
+            if(i < 0 || j < 0 || i >= MAP_GRID_HEIGHT || j >= MAP_GRID_WIDTH || MAP[i][j] == 1) {
+                return 1; // Collision detected
+            }
+        }
+    }
+    return 0; // Safe
+}
+
+
+/*
+ * Updates the position and orientation of all active cubes in the world,
+ * bouncing them off map walls.
+ */
+void update_cubes() {
+    for (int i = 0; i < num_world_cubes; i++) {
+        CubeEntity* cube = &world_cubes[i];
+        
+        if (cube->active) {
+            // --- Update X Position ---
+            if (check_cube_collision(cube->x + cube->dx, cube->y)) {
+                // Hit a vertical wall, bounce X
+                cube->dx = -cube->dx;
+            } else {
+                // Path is clear, move X
+                cube->x += cube->dx;
+            }
+
+            // --- Update Y Position ---
+            if (check_cube_collision(cube->x, cube->y + cube->dy)) {
+                // Hit a horizontal wall, bounce Y
+                cube->dy = -cube->dy;
+            } else {
+                // Path is clear, move Y
+                cube->y += cube->dy;
+            }
+
+            // --- Update Orientation ---
+            cube->yaw   += cube->dyaw;
+            cube->pitch += cube->dpitch;
+            cube->roll  += cube->droll;
+        }
+    }
+}
+
 /* * Scans the map grid for cube entities ('2') and spawns them into the world_cubes array.
  */
 void init_entities() {
@@ -157,10 +214,19 @@ void init_entities() {
                     // Set correct Z-height to sit flush on the floor
                     cube->z = TO_FP(UNIT/2); 
                     
-                    // Reset local rotation
+                    // Reset orientation
                     cube->yaw = 0;
                     cube->pitch = 0;
                     cube->roll = 0;
+
+                    // Reset rotation
+                    cube->dyaw = 0;
+                    cube->dpitch = 0;
+                    cube->droll = 0;
+
+                    // Reset movement
+                    cube->dx = 0;
+                    cube->dy = 0;
                     
                     num_world_cubes++;
                 }

@@ -70,6 +70,10 @@ int main() {
     initPlayer();
     init_entities();
 
+    //world_cubes[0].dx = 50000;
+    //world_cubes[0].dy = 50000;
+    world_cubes[1].dpitch = 1;
+
     set_control_reg(true, true);
 
     uint32_t last_time = get_time();
@@ -99,7 +103,7 @@ int main() {
         }
         
         // Moving one of the cubes (It is difficult currently to choose a specific cube to move.)
-        world_cubes[0].x += 10000;
+        update_cubes();
 
         WRITE_REG(GPU_CFD_ADR, 1);
         while(1){
