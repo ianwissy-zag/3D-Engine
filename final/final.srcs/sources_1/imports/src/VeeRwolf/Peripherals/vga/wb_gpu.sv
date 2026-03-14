@@ -5,8 +5,8 @@ module wb_gpu #(
     input  logic                gpu_clk,
     input  logic                gpu_rst,
     input  logic [8:0]          pixel_column,
-    input  logic [7:0]          color,
-    input  logic [7:0]          height,
+    input  logic [7:0]          texX,
+    input  logic [9:0]          height,
     input  logic                write_toggle,
     input  logic                overlay_en,
     input  logic                prim_mode_en,
@@ -21,9 +21,9 @@ module wb_gpu #(
 );
     
     // Z-table storage: 1D array storing wall heights per column (320 entries)
-    logic [7:0] z_table [0:SCREEN_WIDTH-1];
+    logic [9:0] z_table [0:SCREEN_WIDTH-1];
     // Pipeline registers to align Z-data with the triangle rasterizer's d2 stage
-    logic [7:0] z_val_d1, z_val_d2;
+    logic [9:0] z_val_d1, z_val_d2;
 
     logic        rc_wr_en;
     logic [16:0] rc_wr_adr;
@@ -34,18 +34,18 @@ module wb_gpu #(
     logic [11:0] tri_wr_data;
 
     logic [8:0] gpu_column, gpu_column_meta;
-    logic [7:0] gpu_color,  gpu_color_meta;
-    logic [7:0] gpu_height, gpu_height_meta;
+    logic [7:0] gpu_texX,   gpu_texX_meta;
+    logic [9:0] gpu_height, gpu_height_meta;
     logic       gpu_toggle, gpu_toggle_meta, gpu_toggle_d1;
     
     always_ff @(posedge gpu_clk) begin
         gpu_column_meta <= pixel_column;
-        gpu_color_meta  <= color;
+        gpu_texX_meta   <= texX;
         gpu_height_meta <= height;
         gpu_toggle_meta <= write_toggle;
         
         gpu_column <= gpu_column_meta;
-        gpu_color  <= gpu_color_meta;
+        gpu_texX   <= gpu_texX_meta;
         gpu_height <= gpu_height_meta;
         gpu_toggle <= gpu_toggle_meta;
         
@@ -78,49 +78,115 @@ module wb_gpu #(
         overlay_en_gpu    <= overlay_en_meta;
       end
     end
+
+    logic [11:0] tex_rom [0:16383];
+    logic [11:0] tex_data;
+
+    initial begin
+        $readmemh("brick_128x128.mem", tex_rom);
+    end
+
+    logic [15:0] STEP_LUT [0:1023];
+
+    initial begin
+        STEP_LUT[0] = 16'd0; 
+        for (int i = 1; i < 1024; i = i + 1) begin
+            STEP_LUT[i] = 16'd32768 / i;
+        end
+    end
     
     typedef enum logic {IDLE, DRAW} state_t;
     state_t current_state;
 
-    logic [7:0] y_cnt; 
-    logic [7:0] wall_top, wall_bottom;
+    logic [7:0]  y_cnt; 
+    logic [9:0]  wall_top, wall_bottom;
+    logic [15:0] tex_step, texY_fixed;
+
+    logic        rc_valid_s1, is_wall_s1;
+    logic [7:0]  y_s1;
+    logic [16:0] rc_wr_adr_s1;
+    logic [6:0]  texY_s1;
+
+    logic        rc_valid_s2, is_wall_s2;
+    logic [7:0]  y_s2; 
+    logic [9:0]  wall_top_s2;            
+    logic [16:0] rc_wr_adr_s2;
+    logic [13:0] tex_adr_s2;
+
+    logic        rc_valid_s3, is_wall_s3;
+    logic [7:0]  y_s3;
+    logic [9:0]  wall_top_s3;          
+    logic [16:0] rc_wr_adr_s3;
 
     always_ff @(posedge gpu_clk) begin
         if (gpu_rst) begin
             current_state <= IDLE;
-            rc_wr_en      <= 1'b0;
+            rc_valid_s1   <= 1'b0;
             y_cnt         <= 0;
         end else begin
             case (current_state)
                 IDLE: begin
-                    rc_wr_en <= 1'b0;
+                    rc_valid_s1 <= 1'b0;
                     if (new_data_pulse) begin
                         y_cnt         <= 0;
+                        tex_step      <= STEP_LUT[gpu_height];
                         wall_top      <= (CENTER_ROW > (gpu_height >> 1)) ? (CENTER_ROW - (gpu_height >> 1)) : 0;
                         wall_bottom   <= (CENTER_ROW + (gpu_height >> 1));
+
+                        if (gpu_height > (CENTER_ROW * 2)) 
+                            texY_fixed <= (((gpu_height >> 1) - CENTER_ROW) * STEP_LUT[gpu_height]);
+                        else 
+                            texY_fixed <= 0;
+                            
                         current_state <= DRAW;
                     end
                 end
 
                 DRAW: begin
-                    rc_wr_en  <= 1'b1;
-                    rc_wr_adr <= (y_cnt * SCREEN_WIDTH) + gpu_column;
-                    
-                    if (y_cnt < wall_top)
-                        rc_wr_data <= {4'h0, 8'h33}; 
-                    else if (y_cnt > wall_bottom)
-                        rc_wr_data <= {4'h0, 8'h77}; 
-                    else
-                        rc_wr_data <= {4'h0, gpu_color}; 
+                    rc_valid_s1  <= 1'b1;
+                    y_s1         <= y_cnt;
+                    rc_wr_adr_s1 <= (y_cnt * SCREEN_WIDTH) + gpu_column;
+                    is_wall_s1   <= (y_cnt >= wall_top) && (y_cnt <= wall_bottom);
+                    texY_s1      <= texY_fixed[14:8];
 
-                    if (y_cnt == 239) begin
-                        current_state <= IDLE;
-                    end else begin
-                        y_cnt <= y_cnt + 1;
+                    if (y_cnt >= wall_top && y_cnt <= wall_bottom) begin
+                        texY_fixed <= texY_fixed + tex_step;
                     end
+
+                    if (y_cnt == 239) current_state <= IDLE;
+                    else              y_cnt <= y_cnt + 1;
                 end
             endcase
         end
+    end
+
+    always_ff @(posedge gpu_clk) begin
+        if (gpu_rst) begin
+            rc_valid_s2 <= 1'b0;
+            rc_valid_s3 <= 1'b0;
+        end else begin
+            rc_valid_s2  <= rc_valid_s1;
+            y_s2         <= y_s1;
+            wall_top_s2  <= wall_top;
+            rc_wr_adr_s2 <= rc_wr_adr_s1;
+            is_wall_s2   <= is_wall_s1;
+            tex_adr_s2   <= {texY_s1, gpu_texX[6:0]};
+
+            tex_data     <= tex_rom[tex_adr_s2];
+            rc_valid_s3  <= rc_valid_s2;
+            y_s3         <= y_s2;
+            wall_top_s3  <= wall_top_s2;
+            rc_wr_adr_s3 <= rc_wr_adr_s2;
+            is_wall_s3   <= is_wall_s2;
+        end
+    end
+
+    always_comb begin
+        rc_wr_en  = rc_valid_s3;
+        rc_wr_adr = rc_wr_adr_s3;
+
+        if (!is_wall_s3) rc_wr_data = (y_s3 < wall_top_s3) ? 12'h033 : 12'h077; 
+        else             rc_wr_data = tex_data;
     end
 
     // Simple command latch
@@ -315,8 +381,8 @@ module wb_gpu #(
         y_d2 <= '0;
         draw_valid_d1 <= 1'b0;
         draw_valid_d2 <= 1'b0;
-        z_val_d1 <= 8'h0; 
-        z_val_d2 <= 8'h0;
+        z_val_d1 <= 10'h0; 
+        z_val_d2 <= 10'h0;
       end else begin
         x_d1 <= x_cur;
         x_d2 <= x_d1;
@@ -329,7 +395,7 @@ module wb_gpu #(
         if (x_cur >= 0 && x_cur < SCREEN_WIDTH)
             z_val_d1 <= z_table[x_cur];
         else
-            z_val_d1 <= 8'h00; 
+            z_val_d1 <= 10'h000; 
 
         // Delay Z data one more cycle to match coordinate d2 stage
         z_val_d2 <= z_val_d1;
@@ -462,7 +528,7 @@ module wb_gpu #(
          if (x_d2 >= 0 && x_d2 < $signed({2'b0, SCREEN_WIDTH[8:0]}) && y_d2 >= 0 && y_d2 < 240) begin
            if (inside_tri_reg) begin
              // Dynamic Depth Test: Compare latched tri_height against current Z-table value
-             if (tri_height >= z_val_d2) begin
+             if ({2'b00, tri_height} >= z_val_d2) begin
                 tri_wr_en   = 1'b1;
                 tri_wr_adr  = row_base_d2 + 17'(x_d2);
                 tri_wr_data = tri_color;
@@ -484,8 +550,8 @@ module wb_gpu #(
        end
    end
 
-   assign busy = (current_state != IDLE) || (tri_state != T_IDLE) ||
-                  have_v0 || have_v1 || have_v2 || tri_start_pending;
+   assign busy = (current_state != IDLE) || rc_valid_s1 || rc_valid_s2 || rc_valid_s3 || 
+                 (tri_state != T_IDLE) || have_v0 || have_v1 || have_v2 || tri_start_pending;
 
 // Functions
 function automatic signed [10:0] min3_11(input signed [10:0] a,b,c);

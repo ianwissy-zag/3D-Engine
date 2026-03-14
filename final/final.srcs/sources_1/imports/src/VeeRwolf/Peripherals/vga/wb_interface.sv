@@ -16,8 +16,8 @@ module wb_interface (
 
     // Column Drawing Registers (0x04)
     output logic [8:0]          pixel_column,
-    output logic [7:0]          column_color,
-    output logic [7:0]          column_height,
+    output logic [7:0]          column_txX,
+    output logic [9:0]          column_height,
     output logic                wb_write_toggle,
 
     // Frame Calculation Done Register (0x08)
@@ -60,7 +60,7 @@ logic cmd_fifo_empty_sync;
 always_ff @(posedge wb_clk_i) begin
     if (wb_rst_i) begin
         pixel_column <= '0;
-        column_color <= '0;
+        column_txX <= '0;
         column_height <= '0;
         wb_write_toggle <= '0;
 
@@ -86,8 +86,8 @@ always_ff @(posedge wb_clk_i) begin
             // 0x04: Column Drawing Data Register
             4'h1: begin
                 pixel_column    <= wb_dat_i[8:0];
-                column_color    <= wb_dat_i[16:9];
-                column_height   <= wb_dat_i[24:17];
+                column_txX    <= wb_dat_i[16:9];
+                column_height   <= wb_dat_i[26:17];
                 wb_write_toggle <= ~wb_write_toggle;
             end
 
@@ -143,7 +143,7 @@ always_ff @(posedge wb_clk_i) begin
                     6'b0,
                     wb_write_toggle,
                     column_height,
-                    column_color,
+                    column_txX,
                     pixel_column
                 };
             end

@@ -464,8 +464,8 @@ module veerwolf_core
    wire gpu_busy;
    wire fcd;
    wire [8:0] pixel_column;
-   wire [7:0] column_color;
-   wire [7:0] column_height;
+   wire [7:0] column_txX;
+   wire [9:0] column_height;
    wire       wb_write_toggle;
    wire        cmd_fifo_empty;
    wire        cmd_fifo_full;
@@ -492,7 +492,7 @@ module veerwolf_core
       .bram_inx  (gpu_bram_inx),
       // Column Drawing Registers (0x04)
       .pixel_column (pixel_column),
-      .column_color (column_color),
+      .column_txX (column_txX),
       .column_height (column_height),
       .wb_write_toggle (wb_write_toggle),
       // Frame Calculation Done Register (0x08)
@@ -527,7 +527,7 @@ module veerwolf_core
       .gpu_clk  (clk_gpu),
       .gpu_rst  (rst_gpu),
       .pixel_column (pixel_column),
-      .color (column_color),
+      .texX (column_txX),
       .height (column_height),
       .write_toggle (wb_write_toggle),
       .cmd_fifo_empty (cmd_fifo_empty),
