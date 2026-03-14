@@ -82,7 +82,8 @@ bool send_point_cmd(point_t data, uint8_t idx) {
     return true;
 }
 
-bool send_color_cmd(uint8_t data, uint32_t height_data) {
+
+bool send_color_cmd(uint16_t data, uint32_t height_data) {
     // See if there is room in the Command FIFO
     if (is_fifo_full()) {
         return false;
@@ -97,7 +98,8 @@ bool send_color_cmd(uint8_t data, uint32_t height_data) {
     }
 
     // Prepare Command Register fields
-    volatile uint32_t color = ((uint32_t) data << VGA_CMD_COLOR_OFFSET) & VGA_CMD_COLOR_MASK;
+    // Ensure the color data is masked to 12 bits (0xFFF) before shifting to be safe
+    volatile uint32_t color = (((uint32_t) data & 0xFFF) << VGA_CMD_COLOR_OFFSET) & VGA_CMD_COLOR_MASK;
     volatile uint32_t height = (height_data << VGA_CMD_HEIGHT_OFFSET) & VGA_CMD_HEIGHT_MASK;
     volatile uint32_t op = ((uint32_t) VGA_CMD_OP_COLOR << VGA_CMD_OP_OFFSET) & VGA_CMD_OP_MASK;
 
@@ -139,7 +141,7 @@ bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height) {
 }
 
 // TODO: This is placeholder code for drawing triangles on the screen. Not super nice...
-bool draw_triangle(triangle_t tri, uint8_t color, uint8_t height) {
+bool draw_triangle(triangle_t tri, uint16_t color, uint8_t height) {
     // Send point data
     while (!send_point_cmd(tri.a, 0));
     while (!send_point_cmd(tri.b, 1));

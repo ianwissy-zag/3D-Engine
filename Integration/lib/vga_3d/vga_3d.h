@@ -47,8 +47,8 @@
 #define VGA_CMD_OP_MASK         0xC0000000
 #define VGA_CMD_X_MASK          0x3FF80000
 #define VGA_CMD_Y_MASK          0x0007FE00
-#define VGA_CMD_COLOR_MASK      0x3FC00000
-#define VGA_CMD_HEIGHT_MASK     0x003FC000
+#define VGA_CMD_COLOR_MASK      0x3FFC0000
+#define VGA_CMD_HEIGHT_MASK     0x0003FC00
 
 /* Additional VGA GPU Defines --------------------------------------------------------------------- */
 // Column Drawing Register
@@ -67,8 +67,8 @@
 #define VGA_CMD_OP_OFFSET       30
 #define VGA_CMD_X_OFFSET        19
 #define VGA_CMD_Y_OFFSET        9
-#define VGA_CMD_COLOR_OFFSET    22
-#define VGA_CMD_HEIGHT_OFFSET   14
+#define VGA_CMD_COLOR_OFFSET    18
+#define VGA_CMD_HEIGHT_OFFSET   10
 
 /* Macro Definitions ------------------------------------------------------------------------------ */
 // Read and write macros
@@ -142,26 +142,24 @@ bool send_point_cmd(point_t p, uint8_t idx);
 /**
  * @brief   send_color_cmd() sends the color of the triangle to the GPU and starts the rasterization 
  * process.
- * * @details This function sends a 8-bit color to the 3D Command FIFO. The 8-bit color is mapped below
- * where a 'r' represents a red bit, 'g' represents a green bit, and 'b' represents a blue
- * bit.
- * * color = {rrrgggbb}
+ * * @details This function sends a 12-bit color to the 3D Command FIFO. The 12-bit color is typically 
+ * mapped as {rrrrggggbbbb}.
  * * @note    It is important that point data be written to the 3D Command FIFO before the color data. 
  * This is because sending color data to the 3D Command FIFO also starts the triangle 
  * rasterization process.
- * * @param   color:  The 8-bit color of the triangle.
- * * @param   height: The 8-bit height of the triangle.
+ * * @param   data:   The 12-bit color of the triangle.
+ * * @param   height_data: The height of the triangle.
  * * @return   Returns true if the color data was sent successfully. Returns false if the 3D Command FIFO
  * is full and can't accept more commands at the moment.
  */
-bool send_color_cmd(uint8_t data, uint32_t height_data);
+bool send_color_cmd(uint16_t data, uint32_t height_data);
 
 /**
  * @brief   send_column_cmd() sends a y-centered column to be drawn on the screen.
  * * @details This function sends a y-centered column to the Column Drawing Register. This in turn 
  * writes the rectangle data to the BRAM. 
  * * @param   p_col:  The pixel column that the rectangle is to be drawn in.
- * * @param   color:  The 8-bit color of the rectangle.
+ * * @param   color:  The 8-bit color of the rectangle. (Update this if columns also use 12-bit color).
  * * @param   height: The height of the rectangle.
  * * @return   Returns true.
  */
@@ -174,10 +172,10 @@ bool send_column_cmd(uint16_t p_col, uint8_t color, uint8_t height);
  * rasterize the triangle. To make sure that the data is sent, the function waits until the 
  * 3D Command FIFO has room with a while loop.
  * * @param   tri:    A triangle_t struct that contains all of the triangle's point data.
- * * @param   color:  The 8-bit color of the triangle.
+ * * @param   color:  The 12-bit color of the triangle.
  * * @param   height: The 8-bit height of the triangle.
  * * @return   Returns true.
  */
-bool draw_triangle(triangle_t tri, uint8_t color, uint8_t height);
+bool draw_triangle(triangle_t tri, uint16_t color, uint8_t height);
 
 #endif // VGA_3D_H

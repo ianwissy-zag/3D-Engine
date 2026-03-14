@@ -70,8 +70,10 @@ int main() {
     initPlayer();
     init_entities();
 
-    //world_cubes[0].dx = 50000;
-    //world_cubes[0].dy = 50000;
+    world_cubes[0].dx = 50000;
+    world_cubes[0].dy = 50000;
+    world_cubes[2].dx = -40000;
+    world_cubes[2].dy = 60000;
     world_cubes[1].dpitch = 1;
 
     set_control_reg(true, true);
@@ -102,7 +104,7 @@ int main() {
             render_cube(visibleList[i]);
         }
         
-        // Moving one of the cubes (It is difficult currently to choose a specific cube to move.)
+        // Update cube positions. It may be necessary to pass the dt value to this function. 
         update_cubes();
 
         WRITE_REG(GPU_CFD_ADR, 1);
