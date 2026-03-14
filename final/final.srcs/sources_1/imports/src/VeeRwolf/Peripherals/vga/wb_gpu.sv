@@ -17,7 +17,7 @@ module wb_gpu #(
     output logic                busy,
     output logic                wr_en,
     output logic [16:0]         wr_adr,
-    output logic [7:0]          data
+    output logic [11:0]         data
 );
     
     // Z-table storage: 1D array storing wall heights per column (320 entries)
@@ -27,16 +27,16 @@ module wb_gpu #(
 
     logic        rc_wr_en;
     logic [16:0] rc_wr_adr;
-    logic [7:0]  rc_wr_data;
+    logic [11:0] rc_wr_data;
     
     logic        tri_wr_en;
     logic [16:0] tri_wr_adr;
-    logic [7:0]  tri_wr_data;
+    logic [11:0] tri_wr_data;
 
     logic [8:0] gpu_column, gpu_column_meta;
     logic [7:0] gpu_color,  gpu_color_meta;
     logic [7:0] gpu_height, gpu_height_meta;
-    logic        gpu_toggle, gpu_toggle_meta, gpu_toggle_d1;
+    logic       gpu_toggle, gpu_toggle_meta, gpu_toggle_d1;
     
     always_ff @(posedge gpu_clk) begin
         gpu_column_meta <= pixel_column;
@@ -88,14 +88,14 @@ module wb_gpu #(
     always_ff @(posedge gpu_clk) begin
         if (gpu_rst) begin
             current_state <= IDLE;
-            rc_wr_en          <= 1'b0;
-            y_cnt          <= 0;
+            rc_wr_en      <= 1'b0;
+            y_cnt         <= 0;
         end else begin
             case (current_state)
                 IDLE: begin
                     rc_wr_en <= 1'b0;
                     if (new_data_pulse) begin
-                        y_cnt          <= 0;
+                        y_cnt         <= 0;
                         wall_top      <= (CENTER_ROW > (gpu_height >> 1)) ? (CENTER_ROW - (gpu_height >> 1)) : 0;
                         wall_bottom   <= (CENTER_ROW + (gpu_height >> 1));
                         current_state <= DRAW;
@@ -107,11 +107,11 @@ module wb_gpu #(
                     rc_wr_adr <= (y_cnt * SCREEN_WIDTH) + gpu_column;
                     
                     if (y_cnt < wall_top)
-                        rc_wr_data <= 8'h33; 
+                        rc_wr_data <= {4'h0, 8'h33}; 
                     else if (y_cnt > wall_bottom)
-                        rc_wr_data <= 8'h77; 
+                        rc_wr_data <= {4'h0, 8'h77}; 
                     else
-                        rc_wr_data <= gpu_color; 
+                        rc_wr_data <= {4'h0, gpu_color}; 
 
                     if (y_cnt == 239) begin
                         current_state <= IDLE;
@@ -182,7 +182,7 @@ module wb_gpu #(
     
     logic signed [10:0] tri_x0, tri_x1, tri_x2;
     logic signed [9:0]  tri_y0, tri_y1, tri_y2;
-    logic [7:0] tri_color;
+    logic [11:0] tri_color;
     logic [7:0] tri_height; // Dynamic height latched per triangle
     
     logic tri_start;   // pulse to start raster FSM
@@ -223,9 +223,9 @@ module wb_gpu #(
      
              2'b11: begin // TRI_SUBMIT
                if (have_v0 && have_v1 && have_v2) begin
-                 tri_color  <= cmd_word[29:22];
+                 tri_color  <= cmd_word[29:18];
                  // Latch height from the next bits in the command word
-                 tri_height <= cmd_word[21:14]; 
+                 tri_height <= cmd_word[17:10]; 
                  tri_start  <= 1'b1;
      
                  // consume vertices for next triangle

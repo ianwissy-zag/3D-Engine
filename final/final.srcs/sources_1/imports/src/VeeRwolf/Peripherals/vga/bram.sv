@@ -3,7 +3,7 @@
 
 
 module bram#(
-    parameter DATA_WIDTH = 8,
+    parameter DATA_WIDTH = 12,
     parameter DEPTH      = 76800,
     parameter ADR_WIDTH = 17
     )(

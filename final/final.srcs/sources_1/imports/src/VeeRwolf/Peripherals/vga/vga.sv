@@ -5,7 +5,7 @@ module vga #(
     output logic                    rd_en,
     output logic [16:0]             rd_adr,
     output logic                    bram_inx,
-    input  logic [7:0]              data,
+    input  logic [11:0]              data,
 
     input  logic                    clk_vga,    
     input  logic                    rst,
@@ -102,19 +102,11 @@ module vga #(
     assign hsync = hsync_d2;
     assign vsync = vsync_d2;
 
-    logic [3:0] red_mapped;
-    logic [3:0] green_mapped;
-    logic [3:0] blue_mapped;
-
-    assign red_mapped   = {data[7:5], data[5]};
-    assign green_mapped = {data[4:2], data[2]};
-    assign blue_mapped  = {data[1:0], data[1:0]};
-
     always_comb begin
         if (px_en_d2) begin
-            VGA_Red   = red_mapped;
-            VGA_Green = green_mapped;
-            VGA_Blue  = blue_mapped;
+            VGA_Red   = data[11:8];
+            VGA_Green = data[7:4];
+            VGA_Blue  = data[3:0];
         end else begin
             VGA_Red   = 4'd0;
             VGA_Green = 4'd0;
