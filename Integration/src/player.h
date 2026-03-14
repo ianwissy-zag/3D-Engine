@@ -55,6 +55,7 @@ void movePlayer(fixed32 dx, fixed32 dy);
 int clipMovement(fixed32 dx, fixed32 dy);
 void update_cubes();
 void init_entities();
+int count_cubes();
 int get_cubes_camera_offsets(CubeEntity** visible_cubes, int max_cubes);
 void sort_cubes(CubeEntity** visible_cubes, int count);
 

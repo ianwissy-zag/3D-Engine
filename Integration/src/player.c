@@ -134,6 +134,7 @@ void initPlayer() {
                 // Center the player exactly in the middle of the grid tile
                 fpPlayerPosX = TO_FP((WALL_SIZE * col) + (WALL_SIZE / 2));
                 fpPlayerPosY = TO_FP((WALL_SIZE * row) + (WALL_SIZE / 2));
+                playerAngleIndex = 0;
                 fpPlayerAngle = TO_FP(playerAngleIndex);
                 return;
             }
@@ -201,6 +202,9 @@ void update_cubes() {
  */
 void init_entities() {
     num_world_cubes = 0; 
+    for (int i = 0; i < MAX_ACTIVE_CUBES; i++){
+        world_cubes[i].active = false;
+    }
     for (int row = 0; row < MAP_GRID_HEIGHT; row++) {
         for (int col = 0; col < MAP_GRID_WIDTH; col++) {
             if (MAP[row][col] == 2) {
@@ -233,6 +237,16 @@ void init_entities() {
             }
         }
     }
+}
+
+int count_cubes(){
+    int cubes = 0;
+    for (int i = 0; i < MAX_ACTIVE_CUBES; i++){
+        if (world_cubes[i].active == 1){
+            cubes++;
+        }
+    }
+    return cubes;
 }
 
 /* * Transforms active cubes from world space into camera space, calculates their 

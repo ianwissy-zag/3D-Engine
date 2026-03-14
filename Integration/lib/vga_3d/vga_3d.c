@@ -82,7 +82,6 @@ bool send_point_cmd(point_t data, uint8_t idx) {
     return true;
 }
 
-
 bool send_color_cmd(uint16_t data, uint32_t height_data) {
     // See if there is room in the Command FIFO
     if (is_fifo_full()) {

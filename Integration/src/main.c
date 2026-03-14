@@ -23,26 +23,24 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
     {R,2,2,2,0,0,0,0,0,R},
     {R,2,2,2,0,0,0,0,2,R},
     {R,0,0,R,0,0,R,R,R,R},
-    {R,0,0,0,0,0,0,0,0,R},
-    {R,R,0,0,0,0,0,0,R,R},
+    {R,0,0,0,0,0,0,0,4,R},
+    {R,R,0,4,0,0,0,0,R,R},
     {R,R,R,R,R,0,R,R,R,R},
-    {R,R,R,R,R,0,R,R,R,R},
+    {R,R,0,R,R,0,R,R,R,R},
     {R,R,0,R,0,0,0,0,R,R},
     {R,0,0,R,0,0,0,0,0,R},
     {R,0,0,R,R,R,R,0,0,R},
     {R,0,0,0,0,0,0,0,0,R},
-    {R,0,0,0,0,0,0,0,0,R},
-    {R,0,0,R,0,0,R,R,R,R},
-    {R,0,0,0,0,0,0,0,0,R},
-    {R,R,0,0,0,0,0,0,R,R},
+    {R,0,4,0,0,0,0,0,0,R},
+    {R,0,0,R,R,3,R,R,R,R},
+    {R,0,0,R,0,0,0,0,2,R},
+    {R,R,0,R,0,0,0,2,R,R},
     {R,R,R,R,R,R,R,R,R,R}
 };
 
 // These are only the cubes that are active, as subeset of total cubes created on game start
 CubeEntity* visibleList[MAX_ACTIVE_CUBES];
 extern CubeEntity world_cubes[MAX_ACTIVE_CUBES];
-
-char gameIsRunning = TRUE;
 
 void readInputs(){
     int wasd_data = READ_REG(KB_DATA);
@@ -66,7 +64,7 @@ void readInputs(){
     return;
 }
 
-int main() {
+void init_game(){
     initPlayer();
     init_entities();
 
@@ -75,45 +73,54 @@ int main() {
     world_cubes[2].dx = -40000;
     world_cubes[2].dy = 60000;
     world_cubes[1].dpitch = 1;
+}
 
+int main() {
     set_control_reg(true, true);
+    while (1){
+        init_game();
+        uint32_t last_time = get_time();
 
-    uint32_t last_time = get_time();
+        int initial_cubes = count_cubes();
 
-    while(1) {
-        uint32_t current_time = get_time();
-        uint32_t delta_time = current_time - last_time;
-        last_time = current_time;
+        while(1) {
+            uint32_t current_time = get_time();
+            uint32_t delta_time = current_time - last_time;
+            last_time = current_time;
 
-        // Multiply by 161 and shift right by 9 to approximate (delta_time * 65536) / 208333
-        fixed32 dt_mult = (delta_time * 161) >> 9;
+            // Multiply by 161 and shift right by 9 to approximate (delta_time * 65536) / 208333
+            fixed32 dt_mult = (delta_time * 161) >> 9;
 
-        WRITE_REG(GPU_CFD_ADR, 0);
-        int old_bram_inx = READ_REG(GPU_RD_ADR);
+            // Write out to indicate a frame write is starting 
+            WRITE_REG(GPU_CFD_ADR, 0);
+            int old_bram_inx = READ_REG(GPU_RD_ADR);
 
-        readInputs();
+            readInputs();
 
-        updatePlayer(dt_mult);
-        updateRaycaster();
+            updatePlayer(dt_mult);
+            updateRaycaster();
 
-        // Pass the pointer array here to get a sorted view of the active cubes
-        int found_cubes = get_cubes_camera_offsets(visibleList, MAX_ACTIVE_CUBES); 
-        sort_cubes(visibleList, found_cubes);
+            int found_cubes = get_cubes_camera_offsets(visibleList, MAX_ACTIVE_CUBES); 
+            sort_cubes(visibleList, found_cubes);
 
-        for (int i = 0; i < found_cubes; i++) { 
-            render_cube(visibleList[i]);
-        }
-        
-        // Update cube positions. It may be necessary to pass the dt value to this function. 
-        update_cubes();
+            for (int i = 0; i < found_cubes; i++) { 
+                render_cube(visibleList[i]);
+            }
 
-        WRITE_REG(GPU_CFD_ADR, 1);
-        while(1){
-            int bram_inx = READ_REG(GPU_RD_ADR);
-            if (bram_inx != old_bram_inx){
+            update_cubes();
+
+            if (count_cubes() != initial_cubes){
                 break;
             }
-        }
-    } 
+
+            WRITE_REG(GPU_CFD_ADR, 1);
+            while(1){
+                int bram_inx = READ_REG(GPU_RD_ADR);
+                if (bram_inx != old_bram_inx){
+                    break;
+                }
+            }
+        }   
+    }
     return 0;
 }
