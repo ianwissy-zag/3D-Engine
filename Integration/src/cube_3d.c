@@ -103,6 +103,15 @@ static vec3_t cube_vertices[8] = {
     { -CUBE_HALF, CUBE_HALF, CUBE_HALF }
 };
 
+static face_t foe_faces[6] = {
+    { 3, 7, 6, 2, 0xFFF }, // front (+Y)
+    { 0, 1, 5, 4, 0xFFF }, // back (-Y)
+    { 1, 2, 6, 5, 0xFFF }, // right (+X)
+    { 0, 4, 7, 3, 0xFFF }, // left (-X)
+    { 4, 5, 6, 7, 0xFFF }, // top (+Z)
+    { 0, 3, 2, 1, 0xFFF }  // bottom (-Z)
+};
+
 static face_t cube_faces[6] = {
     { 3, 7, 6, 2, 0xFF }, // front (+Y)
     { 0, 1, 5, 4, 0xF0 }, // back (-Y)
@@ -219,9 +228,15 @@ void render_cube(CubeEntity* cube) {
     // Painter's Algorithm for the cube's internal faces
     sort_faces_back_to_front(draw_list, draw_count);
 
-    // Draw the visible faces
     for (uint8_t n = 0; n < draw_count; n++) {
-        face_t *face = &cube_faces[draw_list[n].face_idx];
+        face_t *face;
+        uint8_t face_index = draw_list[n].face_idx;
+        if (cube->friend){
+            face = &cube_faces[face_index];
+        }
+        else {
+            face = &foe_faces[face_index];
+        }
 
         triangle_t t0 = {
             screen_pts[face->i0],
@@ -235,6 +250,7 @@ void render_cube(CubeEntity* cube) {
             screen_pts[face->i3]
         };
         
+        // Send the triangles to the GPU using the chosen color
         draw_triangle(t0, face->color, cube->height >> 16);
         draw_triangle(t1, face->color, cube->height >> 16);
     }

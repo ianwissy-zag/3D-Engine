@@ -185,7 +185,7 @@ module wb_gpu #(
         rc_wr_en  = rc_valid_s3;
         rc_wr_adr = rc_wr_adr_s3;
 
-        if (!is_wall_s3) rc_wr_data = (y_s3 < wall_top_s3) ? 12'h033 : 12'h077; 
+        if (!is_wall_s3) rc_wr_data = (y_s3 < wall_top_s3) ? 12'h333 : 12'h777; 
         else             rc_wr_data = tex_data;
     end
 

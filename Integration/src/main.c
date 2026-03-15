@@ -8,7 +8,7 @@
 
 #define KB_DATA      0x80001600
 #define GPU_RD_ADR   0x80001500
-#define GPU_CFD_ADR  0x80001508 
+#define GPU_CFD_ADR  0x80001508
 #define MTIME_ADR    0x80001020 /* SweRVolf core timer (lower 32 bits) */
 
 static inline uint32_t get_time() {
@@ -64,6 +64,17 @@ void readInputs(){
     return;
 }
 
+void lose_game(){
+    for (int delay = 0; delay < 600000; delay++);
+    for (int j = 240; j >=0; j-=2){
+        for (int i = 0; i < 320; i++){
+            send_column_cmd(i,i,j);
+            for (int k = 0; k < 200; k++);
+        }
+        frame_done();
+    }
+}
+
 void init_game(){
     initPlayer();
     init_entities();
@@ -83,6 +94,8 @@ int main() {
 
         int initial_cubes = count_cubes();
 
+        // Indicate that the first frame is being written
+        WRITE_REG(GPU_CFD_ADR, 0);
         while(1) {
             uint32_t current_time = get_time();
             uint32_t delta_time = current_time - last_time;
@@ -90,11 +103,7 @@ int main() {
 
             // Multiply by 161 and shift right by 9 to approximate (delta_time * 65536) / 208333
             fixed32 dt_mult = (delta_time * 161) >> 9;
-
-            // Write out to indicate a frame write is starting 
-            WRITE_REG(GPU_CFD_ADR, 0);
-            int old_bram_inx = READ_REG(GPU_RD_ADR);
-
+            
             readInputs();
 
             updatePlayer(dt_mult);
@@ -110,16 +119,10 @@ int main() {
             update_cubes();
 
             if (count_cubes() != initial_cubes){
+                lose_game();
                 break;
             }
-
-            WRITE_REG(GPU_CFD_ADR, 1);
-            while(1){
-                int bram_inx = READ_REG(GPU_RD_ADR);
-                if (bram_inx != old_bram_inx){
-                    break;
-                }
-            }
+            frame_done();
         }   
     }
     return 0;

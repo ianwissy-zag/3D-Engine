@@ -37,6 +37,7 @@ typedef struct {
     uint8_t droll;
     fixed32 dx;
     fixed32 dy;
+    bool friend;
 
     // Transient Rendering Data (Calculated fresh every frame)
     fixed32 height;     // Screen height/scale

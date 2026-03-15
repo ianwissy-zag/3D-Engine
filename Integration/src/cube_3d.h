@@ -27,7 +27,7 @@ typedef struct {
 
 typedef struct {
     uint8_t i0, i1, i2, i3;
-    uint8_t color;
+    uint16_t color;
 } face_t;
 
 typedef struct {
