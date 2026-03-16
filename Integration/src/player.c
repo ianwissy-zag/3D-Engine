@@ -33,6 +33,8 @@ extern const int32_t COS_LUT[];
 // The master array containing all cubes in the game world and their absolute states.
 CubeEntity world_cubes[MAX_ACTIVE_CUBES];
 int num_world_cubes = 0;
+int num_friend_cubes = 0;
+int num_foe_cubes = 0;
 
 // Player position and rotation in fixed-point
 fixed32 fpPlayerPosX;
@@ -207,7 +209,7 @@ void init_entities() {
     }
     for (int row = 0; row < MAP_GRID_HEIGHT; row++) {
         for (int col = 0; col < MAP_GRID_WIDTH; col++) {
-            if (MAP[row][col] == 2) {
+            if (MAP[row][col] == 2 || MAP[row][col] == 4) {
                 if (num_world_cubes < MAX_ACTIVE_CUBES) {
                     CubeEntity* cube = &world_cubes[num_world_cubes];
                     
@@ -231,6 +233,13 @@ void init_entities() {
                     // Reset movement
                     cube->dx = 0;
                     cube->dy = 0;
+
+                    if (MAP[row][col] == 2){
+                        cube->friend = true;
+                        num_friend_cubes++;
+                    }
+                    else cube->friend = false;
+                    num_foe_cubes++;
                     
                     num_world_cubes++;
                 }
@@ -242,7 +251,7 @@ void init_entities() {
 int count_cubes(){
     int cubes = 0;
     for (int i = 0; i < MAX_ACTIVE_CUBES; i++){
-        if (world_cubes[i].active == 1){
+        if (world_cubes[i].active == 1 && !world_cubes[i].friend){
             cubes++;
         }
     }

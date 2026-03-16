@@ -104,12 +104,12 @@ static vec3_t cube_vertices[8] = {
 };
 
 static face_t foe_faces[6] = {
-    { 3, 7, 6, 2, 0xFFF }, // front (+Y)
-    { 0, 1, 5, 4, 0xFFF }, // back (-Y)
-    { 1, 2, 6, 5, 0xFFF }, // right (+X)
-    { 0, 4, 7, 3, 0xFFF }, // left (-X)
-    { 4, 5, 6, 7, 0xFFF }, // top (+Z)
-    { 0, 3, 2, 1, 0xFFF }  // bottom (-Z)
+    { 3, 7, 6, 2, 0xF00 }, // front (+Y)
+    { 0, 1, 5, 4, 0xD00 }, // back (-Y)
+    { 1, 2, 6, 5, 0xB00 }, // right (+X)
+    { 0, 4, 7, 3, 0x900 }, // left (-X)
+    { 4, 5, 6, 7, 0xE00 }, // top (+Z)
+    { 0, 3, 2, 1, 0xA00 }  // bottom (-Z)
 };
 
 static face_t cube_faces[6] = {
