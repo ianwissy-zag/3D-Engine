@@ -113,12 +113,12 @@ static face_t foe_faces[6] = {
 };
 
 static face_t cube_faces[6] = {
-    { 3, 7, 6, 2, 0xFF }, // front (+Y)
-    { 0, 1, 5, 4, 0xF0 }, // back (-Y)
-    { 1, 2, 6, 5, 0x0F }, // right (+X)
-    { 0, 4, 7, 3, 0xF8 }, // left (-X)
-    { 4, 5, 6, 7, 0x8F }, // top (+Z)
-    { 0, 3, 2, 1, 0x88 }  // bottom (-Z)
+    { 3, 7, 6, 2, 0x0FF }, // front (+Y)
+    { 0, 1, 5, 4, 0x0F0 }, // back (-Y)
+    { 1, 2, 6, 5, 0x00F }, // right (+X)
+    { 0, 4, 7, 3, 0x0F8 }, // left (-X)
+    { 4, 5, 6, 7, 0x08F }, // top (+Z)
+    { 0, 3, 2, 1, 0x088 }  // bottom (-Z)
 };
 
 static bool face_is_visible(vec3_t *v0, vec3_t *v1, vec3_t *v2) {

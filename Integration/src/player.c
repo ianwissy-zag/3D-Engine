@@ -156,7 +156,7 @@ int check_cube_collision(fixed32 newx, fixed32 newy) {
     for(int i = y1; i <= y2; i++) {
         for(int j = x1; j <= x2; j++) {
             // If out of bounds or hitting a wall block (1)
-            if(i < 0 || j < 0 || i >= MAP_GRID_HEIGHT || j >= MAP_GRID_WIDTH || MAP[i][j] == 1) {
+            if(i < 0 || j < 0 || i >= MAP_GRID_HEIGHT || j >= MAP_GRID_WIDTH || MAP[i][j] == 1 || MAP[i][j] == 3) {
                 return 1; // Collision detected
             }
         }
@@ -248,10 +248,11 @@ void init_entities() {
     }
 }
 
-int count_cubes(){
+
+int count_cubes(bool friends){
     int cubes = 0;
     for (int i = 0; i < MAX_ACTIVE_CUBES; i++){
-        if (world_cubes[i].active == 1 && !world_cubes[i].friend){
+        if (world_cubes[i].active == 1 && world_cubes[i].friend == friends){
             cubes++;
         }
     }

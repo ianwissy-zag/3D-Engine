@@ -4,13 +4,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "raycaster.h" /* Included for the fixed32 definition, if present */
+#include "config.h"
 
 #ifndef FIXED32_DEFINED
 #define FIXED32_DEFINED
 typedef int32_t fixed32;
 #endif
-
-#define MAX_ACTIVE_CUBES 16
 
 /* Global toggles */
 extern char movingForward;
@@ -56,7 +55,7 @@ void movePlayer(fixed32 dx, fixed32 dy);
 int clipMovement(fixed32 dx, fixed32 dy);
 void update_cubes();
 void init_entities();
-int count_cubes();
+int count_cubes(bool friends);
 int get_cubes_camera_offsets(CubeEntity** visible_cubes, int max_cubes);
 void sort_cubes(CubeEntity** visible_cubes, int count);
 

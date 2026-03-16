@@ -16,26 +16,26 @@ static inline uint32_t get_time() {
 }
 
 const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
-    {R,R,R,R,R,R,R,R,R,R},
-    {R,R,0,R,0,0,P,0,R,R},
-    {R,0,0,R,0,0,0,0,0,R},
-    {R,0,0,R,R,R,R,0,0,R},
-    {R,2,2,2,0,0,0,0,0,R},
-    {R,2,2,2,0,0,0,0,2,R},
-    {R,0,0,R,0,0,R,R,R,R},
-    {R,0,0,0,0,0,0,0,4,R},
-    {R,R,0,4,0,0,0,0,R,R},
-    {R,R,R,R,R,0,R,R,R,R},
-    {R,R,0,R,R,0,R,R,R,R},
-    {R,R,0,R,0,0,0,0,R,R},
-    {R,0,0,R,0,0,0,0,0,R},
-    {R,0,0,R,R,R,R,0,0,R},
-    {R,0,0,0,0,0,0,0,0,R},
-    {R,0,4,0,0,0,0,0,0,R},
-    {R,0,0,R,R,3,R,R,R,R},
-    {R,0,0,R,0,0,0,0,2,R},
-    {R,R,0,R,0,0,0,2,R,R},
-    {R,R,R,R,R,R,R,R,R,R}
+    {R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R},
+    {R,R,0,R,0,0,P,0,R,R,R,0,0,0,0,0,2,0,0,R},
+    {R,0,0,R,0,0,0,0,0,R,R,0,0,0,0,0,0,0,0,R},
+    {R,0,0,R,R,R,R,0,0,R,R,0,0,R,0,0,0,0,0,R},
+    {R,2,2,2,0,0,0,0,0,0,0,0,R,0,0,0,4,0,0,R},
+    {R,2,2,2,0,0,0,0,2,R,R,R,0,0,0,0,R,R,R,R},
+    {R,0,0,R,0,0,R,R,R,R,R,0,0,0,R,R,0,2,0,R},
+    {R,0,0,0,0,0,0,0,4,R,R,0,0,R,0,0,0,0,0,R},
+    {R,R,0,4,0,0,0,0,R,R,R,0,0,0,R,0,0,0,0,R},
+    {R,R,R,R,R,0,R,R,R,R,R,0,0,0,0,4,R,0,0,R},
+    {R,R,0,R,R,0,R,R,R,R,R,2,0,0,0,0,0,0,0,R},
+    {R,R,0,R,0,0,0,0,R,R,R,R,R,R,R,R,R,R,0,R},
+    {R,0,0,R,0,0,0,0,0,R,R,0,0,0,0,0,0,0,0,R},
+    {R,0,0,R,R,R,R,0,0,R,R,0,0,0,0,0,0,4,0,R},
+    {R,0,0,0,0,0,0,0,0,R,R,R,R,R,0,0,0,R,0,R},
+    {R,0,4,0,0,0,0,4,0,R,R,0,0,0,4,0,0,0,0,R},
+    {R,0,0,R,R,3,R,R,R,R,R,0,0,0,0,0,R,R,R,R},
+    {R,0,0,R,0,0,0,0,2,R,R,0,0,0,0,0,R,0,0,R},
+    {R,R,0,R,0,0,0,2,R,R,R,0,0,2,0,0,0,2,0,R},
+    {R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R,R}
 };
 
 // These are only the cubes that are active, as subeset of total cubes created on game start
@@ -66,7 +66,7 @@ void readInputs(){
 
 void lose_game(){
     for (int delay = 0; delay < 600000; delay++);
-    for (int j = 240; j >=0; j-=2){
+    for (int j = 240; j>=0; j-=2){
         for (int i = 0; i < 320; i++){
             send_column_cmd(i,i,j);
             for (int k = 0; k < 200; k++);
@@ -75,15 +75,52 @@ void lose_game(){
     }
 }
 
+void win_game() {
+    CubeEntity WinCube;
+    
+    // Initialize static properties
+    WinCube.friend = true;
+    WinCube.active = true;
+    WinCube.offset_x = 0;  
+    WinCube.z = TO_FP(WALL_SIZE); 
+    playerAngleIndex = 0;
+    
+    // Loop distance from far away to the front of the camera
+    for (int dist = 1000; dist > 250; dist-=4) {
+        for (int i = 0; i < 320; i++) {
+            send_column_cmd(i, i, 0);
+        }
+        int32_t calc_height = 2400 / dist; 
+        if (calc_height > 255) calc_height = 255;
+        
+        WinCube.offset_y = dist; 
+        WinCube.height = TO_FP(calc_height); // Converted to Fixed-Point!
+        WinCube.z = TO_FP(2 * WALL_SIZE);
+        WinCube.yaw++;
+        WinCube.pitch++;
+        WinCube.roll++;
+        
+        render_cube(&WinCube);
+        for (volatile int k = 0; k < 5000; k++); 
+        
+        frame_done();
+    }
+}
+
 void init_game(){
     initPlayer();
     init_entities();
-
-    world_cubes[0].dx = 50000;
-    world_cubes[0].dy = 50000;
-    world_cubes[2].dx = -40000;
-    world_cubes[2].dy = 60000;
-    world_cubes[1].dpitch = 1;
+    for (int i = 0; i < MAX_ACTIVE_CUBES; i++){
+        if (world_cubes[i].active && world_cubes[i].friend){
+            world_cubes[i].dpitch = i % 2;
+            world_cubes[i].droll = (i >> 2) && 0x1;
+            world_cubes[i].dyaw = (i >> 3) && 0x1;
+        }
+        else if (world_cubes[i].active){
+            world_cubes[i].dx = 90000;
+            world_cubes[i].dy = 70000;
+        }
+    }
 }
 
 int main() {
@@ -92,7 +129,7 @@ int main() {
         init_game();
         uint32_t last_time = get_time();
 
-        int initial_cubes = count_cubes();
+        int initial_foes = count_cubes(false);
 
         // Indicate that the first frame is being written
         WRITE_REG(GPU_CFD_ADR, 0);
@@ -118,7 +155,12 @@ int main() {
 
             update_cubes();
 
-            if (count_cubes() != initial_cubes){
+            if (count_cubes(true) == 0){
+                win_game();
+                break;
+            }
+
+            if (count_cubes(false) != initial_foes){
                 lose_game();
                 break;
             }

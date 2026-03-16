@@ -20,10 +20,11 @@
 #define ROT_SPEED_INT          1
 
 /* Map constants */
-#define MAP_GRID_WIDTH    10
-#define MAP_GRID_HEIGHT   2* 10
+#define MAP_GRID_WIDTH    20
+#define MAP_GRID_HEIGHT   20
 #define MAP_PIXEL_WIDTH   (MAP_GRID_WIDTH * WALL_SIZE)
 #define MAP_PIXEL_HEIGHT  (MAP_GRID_HEIGHT * WALL_SIZE)
+#define MAX_ACTIVE_CUBES  32
 
 /* Map wall types */
 #define P            -1  
