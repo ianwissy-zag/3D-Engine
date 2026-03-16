@@ -460,7 +460,7 @@ module veerwolf_core
    // GPU
    wire gpu_wr_en, gpu_bram_inx;     
    wire [16:0] gpu_adr;
-   wire [7:0] gpu_data;
+   wire [11:0] gpu_data;
    wire gpu_busy;
    wire fcd;
    wire [8:0] pixel_column;
@@ -545,7 +545,7 @@ module veerwolf_core
    // VGA 
    wire vga_rd_en, vga_bram_inx;
    wire [16:0] vga_adr;
-   wire [7:0] vga_data;
+   wire [11:0] vga_data;
    
    vga vga (
       .clk_vga   (clk_vga),

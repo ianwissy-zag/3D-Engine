@@ -200,7 +200,6 @@ module wb_gpu #(
     logic tri_start_pending;
     logic sample_fifo_data;
     
-    // If you plan to do multi-word commands (LINE_A/LINE_B), add a small staging state
     typedef enum logic [1:0] {CMD_IDLE, CMD_POP, CMD_LATCH} cmd_state_t;
     cmd_state_t cmd_state;
     typedef enum logic [1:0] {T_IDLE, T_SETUP0, T_SETUP1, T_DRAW} tri_state_t;

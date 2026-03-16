@@ -6,9 +6,9 @@ HEIGHT = 240
 NUM_BUFFERS = 2
 FILENAME = "image.mem"
 
-# 8-bit color format: RRRGGGBB
-COLOR_BLACK = "00"
-COLOR_WHITE = "FF" 
+# 12-bit color format: RRRRGGGGBBBB
+COLOR_BLACK = "000"
+COLOR_WHITE = "FFF" 
 
 # Square dimensions (64x64 pixels in the center)
 SQUARE_SIZE = 64
