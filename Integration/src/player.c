@@ -200,7 +200,7 @@ void update_cubes() {
     }
 }
 
-/* * Scans the map grid for cube entities ('2') and spawns them into the world_cubes array.
+/* * Scans the map grid for cube entities ('2' and '4') and spawns them into the world_cubes array.
  */
 void init_entities() {
     num_world_cubes = 0; 
@@ -248,7 +248,9 @@ void init_entities() {
     }
 }
 
-
+/*
+* 
+*/
 int count_cubes(bool friends){
     int cubes = 0;
     for (int i = 0; i < MAX_ACTIVE_CUBES; i++){

@@ -12,10 +12,6 @@ extern fixed32 fpPlayerPosX;
 extern fixed32 fpPlayerPosY;
 extern uint8_t playerAngleIndex;
 
-// --- Added Global Distance Array ---
-fixed32 wallDistanceArray[VIEWPLANE_LENGTH];
-// ------------------------------------
-
 // Camera x position lookup table [-1, 1] in fixed-point
 fixed32 cameraX_LUT[VIEWPLANE_LENGTH];
 char lut_initialized = 0;
@@ -31,40 +27,47 @@ inline void WRITE_REG(int dir, int value) {
     return;
 }
 
-void run_integer_raycast() {
-    // 2. Convert world coords to map coords using bitwise shift instead of division
+void updateRaycaster() {
+    // Safe infinity (Max value much larger than any actual distance).
+    fixed32 MAX_DIST = 1 << 24;
+
+    // Convert world coords to map coords
     fixed32 posX = fpPlayerPosX >> WALL_SHIFT;
     fixed32 posY = fpPlayerPosY >> WALL_SHIFT;
 
     fixed32 dirX = COS_LUT[playerAngleIndex];
     fixed32 dirY = SIN_LUT[playerAngleIndex];
 
+    // Calculate the camera plane for the player 
     fixed32 planeX = IMUL(-dirY, FOV_TAN_CONST);
     fixed32 planeY = IMUL(dirX, FOV_TAN_CONST);
 
+    // Starting ray: The leftmost edge of the screen
     fixed32 rayDirX = dirX - planeX;
     fixed32 rayDirY = dirY - planeY;
 
+    // Calculation of the angle step for each pixel column 
     fixed32 stepCameraX = IDIV(TO_FP(2), TO_FP(VIEWPLANE_LENGTH));
     fixed32 stepDirX = IMUL(planeX, stepCameraX);
     fixed32 stepDirY = IMUL(planeY, stepCameraX);
 
-    // 3. The Raycasting Loop
+    // The Raycasting Loop
     for (int x = 0; x < VIEWPLANE_LENGTH; x++) {
+        // Find which grid cell the player is currently in.
         int mapX = (int)(posX >> FP_SHIFT);
         int mapY = (int)(posY >> FP_SHIFT);
 
-        // Safe infinity (1<<24 is 256 map blocks).
-        fixed32 MAX_DIST = 1 << 24;
-
-        // Epsilon check (<= 64) prevents 32-bit integer overflow when rayDir crosses 0
+        // Epsilon check: If a ray is almost parallel to an axis, that coordinate's distance can become arbitraily large
+        // This detects this behavior and caps it and the predefined "infinity" (MAX_DIST).
         fixed32 deltaDistX = (IABS(rayDirX) <= 64) ? MAX_DIST : IABS(IDIV(TO_FP(1), rayDirX));
         fixed32 deltaDistY = (IABS(rayDirY) <= 64) ? MAX_DIST : IABS(IDIV(TO_FP(1), rayDirY));
 
         fixed32 sideDistX, sideDistY;
         int stepX, stepY;
-        int side = 0;
+        int side = 0; // 0 for X-axis (E/W), 1 for Y-axis (N/S).
 
+        // Determine if we are looking Left/Right or Up/Down and calculate 
+        // the distance to the very first grid line hit.
         if (rayDirX < 0) {
             stepX = -1;
             sideDistX = IMUL((posX - TO_FP(mapX)), deltaDistX);
@@ -82,7 +85,7 @@ void run_integer_raycast() {
             sideDistY = IMUL((TO_FP(mapY + 1) - posY), deltaDistY);
         }
 
-        // --- The DDA Loop ---
+        // Jump from gridline to gridline until we hit a wall tile (1 or 3).
         while (1) {
             if (sideDistX < sideDistY) {
                 sideDistX += deltaDistX;
@@ -98,7 +101,8 @@ void run_integer_raycast() {
         }
 
         // --- Distance Calculation ---
-        // Back to the fast subtraction method now that deltaDist is mathematically stable
+        // Use perpendicular distance to the camera plane rather than 
+        // distance to the player to keep walls perfectly flat on screen.
         fixed32 perpWallDist;
         if (side == 0) {
             perpWallDist = sideDistX - deltaDistX;
@@ -109,9 +113,6 @@ void run_integer_raycast() {
 
         if (perpWallDist <= 0) perpWallDist = 1;
 
-        // Store the distance in the global array for this column
-        wallDistanceArray[x] = perpWallDist;
-
         // Write to the GPU
         int height = (240 << FP_SHIFT) / perpWallDist;
 
@@ -119,28 +120,26 @@ void run_integer_raycast() {
         if (height > 1023) height = 1023;
         if (height < 0) height = 0;
 
-        // Calculate wallX and map it to a texture coordinate
+        // Flip texture if we are looking at the "back" of the wall to keep orientation correct.
         fixed32 wallX = (side == 0) ? (posY + IMUL(perpWallDist, rayDirY)) : (posX + IMUL(perpWallDist, rayDirX));
+        // Convert wallX to a 7-bit (0-127) texture index.
         uint8_t texX = (wallX >> (FP_SHIFT - 7)) & 0x7F;
 
         if ((side == 0 && rayDirX > 0) || (side == 1 && rayDirY < 0)) {
             texX = 127 - texX;
         }
 
-        // 3. Pack data according to Wishbone module mapping:
+        // Pack data according to Wishbone module mapping:
         // [26:17] height (10 bits) | [16:9] texX (8 bits) | [8:0] pixel_column (9 bits)
         uint32_t wb_data = (x & 0x1FF) | ((texX & 0xFF) << 9) | ((height & 0x3FF) << 17);
 
-        // 4. Write to GPU
+        // Write to GPU
         WRITE_REG(GPU_ADR, wb_data);
 
+        // Align raycast angle to the next pixel column
         rayDirX += stepDirX;
         rayDirY += stepDirY;
     }
-}
-
-void updateRaycaster() {
-    run_integer_raycast();
 }
 
 /* =========================================

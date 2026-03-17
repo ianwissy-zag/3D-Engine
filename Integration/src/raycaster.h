@@ -23,7 +23,6 @@ typedef int32_t fixed32;
 extern const int32_t SIN_LUT[];
 extern const int32_t COS_LUT[];
 
-void run_integer_raycast();
 void updateRaycaster();
 
 #endif /* RAYCASTER_H */

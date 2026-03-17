@@ -24,20 +24,24 @@ module wb_gpu #(
     logic [9:0] z_table [0:SCREEN_WIDTH-1];
     // Pipeline registers to align Z-data with the triangle rasterizer's d2 stage
     logic [9:0] z_val_d1, z_val_d2;
-
+    
+    // Output signals for the raycaster write interface
     logic        rc_wr_en;
     logic [16:0] rc_wr_adr;
     logic [11:0] rc_wr_data;
     
+    // Output signals for triangle/primitive writing (unused in this block)
     logic        tri_wr_en;
     logic [16:0] tri_wr_adr;
     logic [11:0] tri_wr_data;
 
+    // Synchronizer registers for cross-clock domain inputs
     logic [8:0] gpu_column, gpu_column_meta;
     logic [7:0] gpu_texX,   gpu_texX_meta;
     logic [9:0] gpu_height, gpu_height_meta;
     logic       gpu_toggle, gpu_toggle_meta, gpu_toggle_d1;
     
+    // 2-stage synchronizer to bring inputs safely into the gpu_clk domain
     always_ff @(posedge gpu_clk) begin
         gpu_column_meta <= pixel_column;
         gpu_texX_meta   <= texX;
@@ -49,19 +53,22 @@ module wb_gpu #(
         gpu_height <= gpu_height_meta;
         gpu_toggle <= gpu_toggle_meta;
         
-        gpu_toggle_d1 <= gpu_toggle;
+        gpu_toggle_d1 <= gpu_toggle; // Used for edge detection
     end  
     
+    // Detect when a new column is ready to be processed (toggling signal)
     logic new_data_pulse;
     assign new_data_pulse = gpu_toggle ^ gpu_toggle_d1;
 
-    // Write to Z-table: update height for the current column when raycaster finishes
+    // Write to Z-table: update height for the current column when the raycaster finishes
+    // This allows sprite rendering or other overlays to perform depth checks.
     always_ff @(posedge gpu_clk) begin
         if (new_data_pulse) begin
             z_table[gpu_column] <= gpu_height;
         end
     end
 
+    // Synchronize enable signals for primitive mode and overlay
     logic prim_mode_en_meta, prim_mode_en_gpu;
     logic overlay_en_meta,   overlay_en_gpu;
     
@@ -79,6 +86,7 @@ module wb_gpu #(
       end
     end
 
+    // Texture memory: 16K x 12-bit ROM holding a 128x128 texture
     logic [11:0] tex_rom [0:16383];
     logic [11:0] tex_data;
 
@@ -86,6 +94,9 @@ module wb_gpu #(
         $readmemh("brick_128x128.mem", tex_rom);
     end
 
+    // Step Look-Up Table (LUT): Precomputes 32768 / height
+    // Used to determine how fast we step through the texture Y coordinates.
+    // 32768 implies an 8.8 or similar fixed-point representation.
     logic [15:0] STEP_LUT [0:1023];
 
     initial begin
@@ -95,29 +106,34 @@ module wb_gpu #(
         end
     end
     
+    // FSM for drawing a vertical slice (column) of the screen
     typedef enum logic {IDLE, DRAW} state_t;
     state_t current_state;
 
-    logic [7:0]  y_cnt; 
+    logic [7:0]  y_cnt; // Screen Y coordinate (0 to 239)
     logic [9:0]  wall_top, wall_bottom;
-    logic [15:0] tex_step, texY_fixed;
+    logic [15:0] tex_step, texY_fixed; // Fixed-point texture stepping
 
+    // Pipeline Stage 1 Signals: Address and boundary calculations
     logic        rc_valid_s1, is_wall_s1;
     logic [7:0]  y_s1;
     logic [16:0] rc_wr_adr_s1;
     logic [6:0]  texY_s1;
 
+    // Pipeline Stage 2 Signals: Texture address generation
     logic        rc_valid_s2, is_wall_s2;
     logic [7:0]  y_s2; 
     logic [9:0]  wall_top_s2;            
     logic [16:0] rc_wr_adr_s2;
     logic [13:0] tex_adr_s2;
 
+    // Pipeline Stage 3 Signals: Data capture and final output formatting
     logic        rc_valid_s3, is_wall_s3;
     logic [7:0]  y_s3;
     logic [9:0]  wall_top_s3;          
     logic [16:0] rc_wr_adr_s3;
 
+    // State Machine and Stage 1 Logic
     always_ff @(posedge gpu_clk) begin
         if (gpu_rst) begin
             current_state <= IDLE;
@@ -129,10 +145,13 @@ module wb_gpu #(
                     rc_valid_s1 <= 1'b0;
                     if (new_data_pulse) begin
                         y_cnt         <= 0;
-                        tex_step      <= STEP_LUT[gpu_height];
+                        tex_step      <= STEP_LUT[gpu_height]; // Get fixed-point step increment
+                        
+                        // Calculate where the wall starts and ends vertically
                         wall_top      <= (CENTER_ROW > (gpu_height >> 1)) ? (CENTER_ROW - (gpu_height >> 1)) : 0;
                         wall_bottom   <= (CENTER_ROW + (gpu_height >> 1));
 
+                        // Handle texture offset if the wall is taller than the screen
                         if (gpu_height > (CENTER_ROW * 2)) 
                             texY_fixed <= (((gpu_height >> 1) - CENTER_ROW) * STEP_LUT[gpu_height]);
                         else 
@@ -145,14 +164,19 @@ module wb_gpu #(
                 DRAW: begin
                     rc_valid_s1  <= 1'b1;
                     y_s1         <= y_cnt;
+                    // Linearize 2D screen coordinates into 1D memory address
                     rc_wr_adr_s1 <= (y_cnt * SCREEN_WIDTH) + gpu_column;
+                    // Check if current pixel falls within the wall bounds
                     is_wall_s1   <= (y_cnt >= wall_top) && (y_cnt <= wall_bottom);
+                    // Extract the integer portion of the fixed point texture Y coordinate
                     texY_s1      <= texY_fixed[14:8];
 
+                    // Increment texture pointer only if we are currently drawing the wall
                     if (y_cnt >= wall_top && y_cnt <= wall_bottom) begin
                         texY_fixed <= texY_fixed + tex_step;
                     end
 
+                    // Exit condition: Assumes a screen height of 240 (0 to 239)
                     if (y_cnt == 239) current_state <= IDLE;
                     else              y_cnt <= y_cnt + 1;
                 end
@@ -160,19 +184,23 @@ module wb_gpu #(
         end
     end
 
+    // Pipeline Stages 2 & 3
     always_ff @(posedge gpu_clk) begin
         if (gpu_rst) begin
             rc_valid_s2 <= 1'b0;
             rc_valid_s3 <= 1'b0;
         end else begin
+            // ---- Stage 2: Calculate Texture Address ----
             rc_valid_s2  <= rc_valid_s1;
             y_s2         <= y_s1;
             wall_top_s2  <= wall_top;
             rc_wr_adr_s2 <= rc_wr_adr_s1;
             is_wall_s2   <= is_wall_s1;
+            // Concatenate Y and X texture coords (assuming 128x128 texture, so 7 bits each)
             tex_adr_s2   <= {texY_s1, gpu_texX[6:0]};
 
-            tex_data     <= tex_rom[tex_adr_s2];
+            // ---- Stage 3: Fetch texture Data and Shift Pipelined Signals ----
+            tex_data     <= tex_rom[tex_adr_s2]; // Synchronous ROM read happens here
             rc_valid_s3  <= rc_valid_s2;
             y_s3         <= y_s2;
             wall_top_s3  <= wall_top_s2;
@@ -181,13 +209,23 @@ module wb_gpu #(
         end
     end
 
+    // Output assignment based on Stage 3 results
     always_comb begin
         rc_wr_en  = rc_valid_s3;
         rc_wr_adr = rc_wr_adr_s3;
 
-        if (!is_wall_s3) rc_wr_data = (y_s3 < wall_top_s3) ? 12'h333 : 12'h777; 
+        // Multiplexer for pixel color:
+        // If not a wall, check if Y is above the wall_top to draw ceiling (033), else floor (077).
+        // If it is a wall, output the fetched texture pixel.
+        if (!is_wall_s3) rc_wr_data = (y_s3 < wall_top_s3) ? 12'h033 : 12'h077; 
         else             rc_wr_data = tex_data;
     end
+    
+    //**********************************************************************
+    //
+    //                      RASTERIZATION PORTION
+    //
+    //**********************************************************************
 
     // Simple command latch
     logic        cmd_valid;
@@ -200,6 +238,7 @@ module wb_gpu #(
     logic tri_start_pending;
     logic sample_fifo_data;
     
+    // If you plan to do multi-word commands (LINE_A/LINE_B), add a small staging state
     typedef enum logic [1:0] {CMD_IDLE, CMD_POP, CMD_LATCH} cmd_state_t;
     cmd_state_t cmd_state;
     typedef enum logic [1:0] {T_IDLE, T_SETUP0, T_SETUP1, T_DRAW} tri_state_t;
