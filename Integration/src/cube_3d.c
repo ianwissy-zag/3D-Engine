@@ -10,8 +10,19 @@
 
 #define CUBE_HALF (UNIT / 4)
 
+#define SUN_DIR_X 192
+#define SUN_DIR_Y 128
+#define SUN_DIR_Z 256
+
+#define AMBIENT_LIGHT 135
+#define FULL_LIGHT 256
+
 static int32_t fx_mul(int32_t a, int32_t b) {
     return ((int64_t)(a * b)) >> FIX_SHIFT;
+}
+
+static int32_t abs32(int32_t x) {
+    return (x < 0) ? -x : x;
 }
 
 static int16_t sin_qtr[65] = {
@@ -79,6 +90,63 @@ static vec3_t cross3(vec3_t a, vec3_t b) {
     return out;
 }
 
+static vec3_t normalize_to_256(vec3_t v) {
+    int32_t ax = abs32(v.x);
+    int32_t ay = abs32(v.y);
+    int32_t az = abs32(v.z);
+
+    int32_t m = ax;
+    if (ay > m) m = ay;
+    if (az > m) m = az;
+
+    if (m == 0) {
+        vec3_t zero = {0, 0, 0};
+        return zero;
+    }
+
+    vec3_t out;
+    out.x = (v.x * 256) / m;
+    out.y = (v.y * 256) / m;
+    out.z = (v.z * 256) / m;
+    return out;
+}
+
+static uint16_t shade_rgb444(uint16_t color, int32_t brightness) {
+    if (brightness < 0) brightness = 0;
+    if (brightness > 256) brightness = 256;
+
+    uint32_t r = (color >> 8) & 0xF;
+    uint32_t g = (color >> 4) & 0xF;
+    uint32_t b = color & 0xF;
+
+    r = (r * brightness) >> 8;
+    g = (g * brightness) >> 8;
+    b = (b * brightness) >> 8;
+
+    if (r > 0xF) r = 0xF;
+    if (g > 0xF) g = 0xF;
+    if (b > 0xF) b = 0xF;
+
+    return (uint16_t)((r << 8) | (g << 4) | b);
+}
+
+static int32_t face_brightness(vec3_t *v0, vec3_t *v1, vec3_t *v2, vec3_t sun_dir) {
+    vec3_t u = { v1->x - v0->x, v1->y - v0->y, v1->z - v0->z };
+    vec3_t v = { v2->x - v0->x, v2->y - v0->y, v2->z - v0->z };
+    vec3_t n = cross3(u, v);
+
+    vec3_t nn = normalize_to_256(n);
+
+    int32_t dot = nn.x * sun_dir.x + nn.y * sun_dir.y + nn.z * sun_dir.z;
+
+    if (dot < 0) dot = 0;
+
+    int32_t lit = dot / 256;
+    if (lit > 256) lit = 256;
+
+    return AMBIENT_LIGHT + (((FULL_LIGHT - AMBIENT_LIGHT) * lit) >> 8);
+}
+
 static bool project_point(vec3_t v, point_t *out) {
     if (v.y <= NEAR_CLIP) {
         return false; 
@@ -105,20 +173,20 @@ static vec3_t cube_vertices[8] = {
 
 static face_t foe_faces[6] = {
     { 3, 7, 6, 2, 0xF00 }, // front (+Y)
-    { 0, 1, 5, 4, 0xD00 }, // back (-Y)
-    { 1, 2, 6, 5, 0xB00 }, // right (+X)
-    { 0, 4, 7, 3, 0x900 }, // left (-X)
-    { 4, 5, 6, 7, 0xE00 }, // top (+Z)
-    { 0, 3, 2, 1, 0xA00 }  // bottom (-Z)
+    { 0, 1, 5, 4, 0xF00 }, // back (-Y)
+    { 1, 2, 6, 5, 0xF00 }, // right (+X)
+    { 0, 4, 7, 3, 0xF00 }, // left (-X)
+    { 4, 5, 6, 7, 0xF00 }, // top (+Z)
+    { 0, 3, 2, 1, 0xF00 }  // bottom (-Z)
 };
 
 static face_t cube_faces[6] = {
-    { 3, 7, 6, 2, 0x0FF }, // front (+Y)
+    { 3, 7, 6, 2, 0x0F0 }, // front (+Y)
     { 0, 1, 5, 4, 0x0F0 }, // back (-Y)
-    { 1, 2, 6, 5, 0x00F }, // right (+X)
-    { 0, 4, 7, 3, 0x0F8 }, // left (-X)
-    { 4, 5, 6, 7, 0x08F }, // top (+Z)
-    { 0, 3, 2, 1, 0x088 }  // bottom (-Z)
+    { 1, 2, 6, 5, 0x0F0 }, // right (+X)
+    { 0, 4, 7, 3, 0x0F0 }, // left (-X)
+    { 4, 5, 6, 7, 0x0F0 }, // top (+Z)
+    { 0, 3, 2, 1, 0x0F0 }  // bottom (-Z)
 };
 
 static bool face_is_visible(vec3_t *v0, vec3_t *v1, vec3_t *v2) {
@@ -152,6 +220,7 @@ static void sort_faces_back_to_front(draw_face_t *list, uint8_t count) {
 }
 
 void render_cube(CubeEntity* cube) {
+    vec3_t world_space[8];
     vec3_t cam_space[8];
     point_t screen_pts[8];
     bool projected[8];
@@ -185,6 +254,9 @@ void render_cube(CubeEntity* cube) {
         // Apply Z height
         v.z += (cube->z >> 16); 
 
+        world_space[i] = v;
+
+        // Move into camera space for projection
         v.x -= CAMERA_X;
         v.y -= CAMERA_Y;
         v.z -= CAMERA_Z;
@@ -228,6 +300,9 @@ void render_cube(CubeEntity* cube) {
     // Painter's Algorithm for the cube's internal faces
     sort_faces_back_to_front(draw_list, draw_count);
 
+    vec3_t sun_world = { SUN_DIR_X, SUN_DIR_Y, SUN_DIR_Z };
+    vec3_t sun_cam = rotate_z(sun_world, playerAngleIndex);
+
     for (uint8_t n = 0; n < draw_count; n++) {
         face_t *face;
         uint8_t face_index = draw_list[n].face_idx;
@@ -237,6 +312,13 @@ void render_cube(CubeEntity* cube) {
         else {
             face = &foe_faces[face_index];
         }
+
+        vec3_t *v0 = &world_space[face->i0];
+        vec3_t *v1 = &world_space[face->i1];
+        vec3_t *v2 = &world_space[face->i2];
+
+        int32_t brightness = face_brightness(v0, v1, v2, sun_cam);
+        uint16_t lit_color = shade_rgb444(face->color, brightness);
 
         triangle_t t0 = {
             screen_pts[face->i0],
@@ -251,7 +333,7 @@ void render_cube(CubeEntity* cube) {
         };
         
         // Send the triangles to the GPU using the chosen color
-        draw_triangle(t0, face->color, cube->height >> 16);
-        draw_triangle(t1, face->color, cube->height >> 16);
+        draw_triangle(t0, lit_color, cube->height >> 16);
+        draw_triangle(t1, lit_color, cube->height >> 16);
     }
 }
