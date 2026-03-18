@@ -39,7 +39,7 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
 };
 
 // These are only the cubes that are active, a subset of total cubes created on game start
-CubeEntity* visibleList[MAX_ACTIVE_CUBES];4
+CubeEntity* visibleList[MAX_ACTIVE_CUBES];
 // These are all the created cubes.
 extern CubeEntity world_cubes[MAX_ACTIVE_CUBES];
 
