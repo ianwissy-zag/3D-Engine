@@ -2,7 +2,7 @@
  * @file cube_3d.c
  * @brief Renders 3D cubes using a mesh.
  *
- * Implements the logic for  displaying 3D cubes, including geometry, 
+ * Implements the logic for displaying 3D cubes, including geometry, 
  * transformations, and rendering behavior.
  *
  * Written by Paul Globisch with assistance from
