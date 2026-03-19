@@ -1,6 +1,14 @@
 #ifndef CUBE_3D_H
 #define CUBE_3D_H
 
+/**
+ * @file cube_3d.h
+ * @brief Defines types, constants, and the interface for rendering 3D cubes.
+ * 
+ * Written by Paul Globisch with assistance from 
+ * Google Gemini.
+ */
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "player.h"
