@@ -1,13 +1,28 @@
+/**
+ * @file raycaster.c
+ * @brief Fixed-Point Raycasting Engine for Hardware GPU
+ * * This file contains the core logic for a fixed-point, DDA-based
+ * (Digital Differential Analyzer) raycaster. It calculates perspective-correct
+ * wall distances, heights, and texture coordinates based on the player's
+ * position and field of view. The final render data is packed into a 32-bit
+ * integer and written to a memory-mapped GPU register.
+ * * Dependencies:
+ * - config.h: Contains fixed-point macros and map data.
+ * - raycaster.h: Contains raycaster configuration and declarations.
+ * - player.h: Contains player state definitions.
+ * Written by Ian Wyse based on code by Nick Stones-Havas
+ * github.com/drdanick/raycaster-sdl with assistance from 
+ * Google Gemini.
+ */
+
 #include <stdio.h>
 #include <stdint.h>
-
 #include "config.h"
 #include "raycaster.h"
 #include "player.h"
 
-#define GPU_ADR 0x80001504 
+#define GPU_ADR 0x80001504 /* Expose the player's true integer state */
 
-/* Expose the player's true integer state */
 extern fixed32 fpPlayerPosX;
 extern fixed32 fpPlayerPosY;
 extern uint8_t playerAngleIndex;
@@ -27,6 +42,20 @@ inline void WRITE_REG(int dir, int value) {
     return;
 }
 
+/**
+ * @brief Executes a single frame's raycasting pass and sends data to the GPU.
+ * * This function projects rays outward from the player's position across the
+ * horizontal field of view. It utilizes a 2D grid stepping algorithm (DDA)
+ * to find the nearest wall intersections.
+ * * Once a wall is hit, it calculates:
+ * 1. The perpendicular distance to avoid the "fisheye" effect.
+ * 2. The projected vertical line height for the screen.
+ * 3. The precise horizontal texture coordinate (0-127) for the hit wall.
+ * * The data (column index, texture X coordinate, and vertical height) is packed
+ * into a single 32-bit word and sent directly to the Wishbone-mapped GPU register.
+ * * @note Relies on external global variables: fpPlayerPosX, fpPlayerPosY, playerAngleIndex.
+ * @return void
+ */
 void updateRaycaster() {
     // Safe infinity (Max value much larger than any actual distance).
     fixed32 MAX_DIST = 1 << 24;
@@ -67,7 +96,7 @@ void updateRaycaster() {
         int side = 0; // 0 for X-axis (E/W), 1 for Y-axis (N/S).
 
         // Determine if we are looking Left/Right or Up/Down and calculate 
-        // the distance to the very first grid line hit.
+        // the distance the ray has to travel to hit a gridline
         if (rayDirX < 0) {
             stepX = -1;
             sideDistX = IMUL((posX - TO_FP(mapX)), deltaDistX);
@@ -145,6 +174,7 @@ void updateRaycaster() {
 /* =========================================
  * TRIG LOOKUP TABLES
  * ========================================= */
+
 const int32_t SIN_LUT[LUT_STEPS] = {
           0,    1608,    3216,    4821,    6424,    8022,    9616,   11204,
       12785,   14359,   15924,   17479,   19024,   20557,   22078,   23586,

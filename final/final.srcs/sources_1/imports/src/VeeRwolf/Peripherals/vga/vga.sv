@@ -1,4 +1,34 @@
-module vga #(
+/* ==========================================================================
+ * Module Name: vga
+ *
+ * Description: 
+ * A VGA display controller that interfaces with a frame buffer (BRAM) to 
+ * drive a 640x480 screen. It incorporates a Display Timing Generator (DTG) 
+ * to create horizontal and vertical sync signals. 
+ * * Key Features:
+ * - Resolution Scaling: Scales a 320x240 internal frame buffer up to a 
+ * 640x480 physical display by shifting pixel row/col values (pixel doubling).
+ * - Double Buffering Support: Monitors 'fcd' (frame complete/flip) and 'busy' 
+ * signals to safely swap the active BRAM buffer (`bram_inx`) during the 
+ * vertical blanking interval (row 480).
+ * - Pipeline Synchronization: Delays sync signals (hsync, vsync, px_en) by 
+ * two clock cycles to account for BRAM read latency, ensuring that the 
+ * fetched pixel data aligns perfectly with the active display area.
+ *
+ * Parameters:
+ * - WIDTH  : Physical screen width (Default: 640)
+ * - HEIGHT : Physical screen height (Default: 480)
+ *
+ * Interface Notes:
+ * - 'data' [11:0]  : 12-bit color data from BRAM (Format: 4-4-4 RGB).
+ * - 'rd_adr' [16:0]: 17-bit linearized address to fetch from the frame buffer.
+ * - 'fcd' / 'busy' : Handshake signals from the GPU/CPU to coordinate frame flipping.
+ *
+ * Author:      Ian Wyse with assistance from Google Gemini
+ * Date:        March 18, 2026
+ * ========================================================================== */
+ 
+ module vga #(
     parameter WIDTH = 640, 
     parameter HEIGHT = 480
 )(

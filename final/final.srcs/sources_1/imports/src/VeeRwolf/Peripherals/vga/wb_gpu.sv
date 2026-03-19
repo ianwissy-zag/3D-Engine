@@ -1,4 +1,34 @@
-module wb_gpu #(
+/* ==========================================================================
+ * Module Name: wb_gpu
+ * * Description: 
+ * A hybrid 2.5D / 3D graphics processing unit designed to render textured 
+ * vertical strips (walls) and rasterize 3D triangles (primitives/sprites). 
+ * * Engine 1: Raycaster / Wall Renderer
+ * - Receives column data (height, texture X coordinate) via a toggle interface.
+ * - Uses a 1D Z-buffer (z_table) to store the depth (height) of each column.
+ * - Scales and maps a 128x128 texture (ROM) using a precomputed Step LUT.
+ * - Fills the floor and ceiling automatically if not rendering a wall.
+ * * Engine 2: Triangle Rasterizer
+ * - Fetches vertex data from a command FIFO.
+ * - Uses edge-equation algorithms (Pineda) to rasterize triangles.
+ * - Features dynamic Z-culling: compares primitive height against the 1D 
+ * Z-buffer to correctly occlude sprites/triangles behind walls.
+ * * Command FIFO Opcodes (Bits [31:30]):
+ * - 2'b00 : TRI_V0     (Load Vertex 0: X[29:19], Y[18:9])
+ * - 2'b01 : TRI_V1     (Load Vertex 1: X[29:19], Y[18:9])
+ * - 2'b10 : TRI_V2     (Load Vertex 2: X[29:19], Y[18:9])
+ * - 2'b11 : TRI_SUBMIT (Color[29:18], Height[17:10], Start Render)
+ *
+ * Parameters:
+ * - SCREEN_WIDTH : Horizontal resolution of the frame buffer (Default: 320)
+ * - CENTER_ROW   : Vertical center of the screen, used for perspective (Default: 120)
+ *
+ * Author:      Ian Wyse, Nelson Rodriguez-Ortiz, (assistance from Google Gemini)
+ * Date:        March 18, 2026
+ * ========================================================================== */
+ 
+ 
+ module wb_gpu #(
     parameter int SCREEN_WIDTH = 320,
     parameter int CENTER_ROW   = 120
 )(
@@ -19,6 +49,12 @@ module wb_gpu #(
     output logic [16:0]         wr_adr,
     output logic [11:0]         data
 );
+
+    //**********************************************************************
+    //
+    //                      RASTERIZATION PORTION
+    //
+    //**********************************************************************
     
     // Z-table storage: 1D array storing wall heights per column (320 entries)
     logic [9:0] z_table [0:SCREEN_WIDTH-1];

@@ -1,4 +1,30 @@
-module wb_ps2_keyboard (
+/* ==========================================================================
+ * Module Name: wb_ps2_keyboard
+ * * Description: 
+ * A Wishbone-compatible PS/2 keyboard controller specifically designed 
+ * to decode and track the state of the 'W', 'A', 'S', and 'D' keys. 
+ * It synchronizes the incoming, asynchronous PS/2 clock and data signals 
+ * to the main Wishbone clock domain, shifts in the 11-bit PS/2 frame, 
+ * and processes make/break (0xF0) scancodes.
+ *
+ * Memory Map / Registers:
+ * Address 0x0 (Read-Only):
+ * - Bit [3] : 'W' key state (1 = pressed, 0 = released)
+ * - Bit [2] : 'A' key state (1 = pressed, 0 = released)
+ * - Bit [1] : 'S' key state (1 = pressed, 0 = released)
+ * - Bit [0] : 'D' key state (1 = pressed, 0 = released)
+ * - Bits [31:4] : Reserved (reads as 0)
+ *
+ * Interface:
+ * - Wishbone B4 Classic Slave (32-bit data, 4-bit address)
+ * - PS/2 Keyboard Input (ps2_clk, ps2_data)
+ *
+ * Author:      Ian Wyse (With assistance from Google Gemini, for instance I made it 
+ *              write this header block). 
+ * Date:        March 18, 2026
+ * ========================================================================== */
+ 
+ module wb_ps2_keyboard (
     // Wishbone Signals
     input  logic        wb_clk_i,
     input  logic        wb_rst_i,

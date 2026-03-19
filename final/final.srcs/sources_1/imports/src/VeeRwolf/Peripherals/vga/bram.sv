@@ -1,6 +1,30 @@
-`timescale 1ns / 1ps
-
-
+/* ==========================================================================
+ * Module Name: bram
+ *
+ * Description: 
+ * A dual-port, dual-clock Block RAM (BRAM) module configured as a 
+ * double-buffered frame buffer for a graphics pipeline. 
+ *
+ * Key Features:
+ * - Double Buffering: The memory space is sized to 2x the DEPTH. It uses 
+ * an index toggle to ensure the VGA controller reads from one half of the 
+ * memory while the GPU writes to the opposite half, preventing screen tearing.
+ * - Clock Domain Crossing (CDC): Uses a 2-stage synchronizer to safely 
+ * pass the active buffer index (vga_bram_inx) from the vga_clk domain 
+ * into the gpu_clk domain.
+ * - True Dual-Port: Independent read and write ports operating on separate 
+ * clocks (vga_clk and gpu_clk) to support asynchronous display and 
+ * render rates.
+ *
+ * Parameters:
+ * - DATA_WIDTH : Width of the pixel data, usually 12-bit RGB (Default: 12)
+ * - DEPTH      : Number of pixels in a single frame buffer (Default: 76800, 
+ * which corresponds to a 320x240 resolution)
+ * - ADR_WIDTH  : Number of bits needed to address DEPTH (Default: 17)
+ *
+ * Author:      Ian Wyse, with assitance from Google Gemini
+ * Date:        March 18, 2026
+ * ========================================================================== */
 
 module bram#(
     parameter DATA_WIDTH = 12,
