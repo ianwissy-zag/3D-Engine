@@ -5,6 +5,7 @@
 .Xil/
 *.os
 *.obj
+*.mov
 
 # --- Ignore Junk Folders ---
 # Use **/ to ensure it finds the folder regardless of where it is in the tree
