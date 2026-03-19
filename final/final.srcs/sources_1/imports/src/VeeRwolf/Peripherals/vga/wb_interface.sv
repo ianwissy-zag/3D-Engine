@@ -1,3 +1,29 @@
+// ============================================================================
+// File Name   : wb_interface.sv
+// Module Name : wb_interface
+// Written by  : Nelson Rodriguez-Ortiz
+// Description : Wishbone slave interface for a custom graphics/GPU pipeline.
+//               This module handles register read/write operations over a 
+//               standard Wishbone bus, managing configuration for column 
+//               drawing, frame buffering, and feeding a command FIFO. It also 
+//               includes 2-stage synchronizers for cross-domain status signals.
+//
+// Memory Map (32-bit word aligned, 4-bit address space):
+// ----------------------------------------------------------------------------
+// Addr (wb_adr) | Name             | Access | Description
+// ----------------------------------------------------------------------------
+// 0x00 (4'h0)   | VGA_FB_IDX       | RO     | VGA Frame Buffer Index
+// 0x04 (4'h1)   | COL_DRAW_DATA    | R/W    | Column drawing params and toggle
+//               |                  |        | [26:17] height, [16:9] txX, 
+//               |                  |        | [8:0] pixel_column
+// 0x08 (4'h2)   | FRAME_CALC_DONE  | WO     | Frame Calculation Done (Bit 0)
+// 0x0C (4'h3)   | GPU_STATUS       | RO     | [3] Overflow, [2] FIFO Empty,
+//               |                  |        | [1] FIFO Full, [0] Busy
+// 0x10 (4'h4)   | GPU_CONTROL      | R/W    | [3] Overlay En, [2] Clear Ovflw,
+//               |                  |        | [0] Primitive Mode En
+// 0x14 (4'h5)   | GPU_COMMAND      | WO     | Push to GPU Command FIFO
+// ============================================================================
+
 module wb_interface (
     // Wishbone Bus Connections
     input  logic                wb_clk_i,

@@ -1,3 +1,21 @@
+// ============================================================================
+// File Name   : async_fifo.sv
+// Module Name : async_fifo
+// Written by  : Nelson Rodriguez-Ortiz
+// Description : Parameterized Asynchronous FIFO for safe data transfer across 
+//               independent clock domains. Uses Gray code pointers and 2-stage 
+//               synchronizers to prevent metastability. Features registered 
+//               'full' and 'empty' flags to break combinational dependency 
+//               loops and improve timing closure.
+//
+// Parameters  :
+//   WIDTH     - Width of the data bus in bits (default: 32)
+//   DEPTH     - Number of words in the FIFO; MUST be a power of 2 (default: 64)
+//
+// Clock Domains:
+//   wr_clk    : Write interface (wr_en, wr_data, wr_full)
+//   rd_clk    : Read interface (rd_en, rd_data, rd_empty)
+// ============================================================================
 module async_fifo #(
   parameter int WIDTH = 32,
   parameter int DEPTH = 64  // must be power of 2
