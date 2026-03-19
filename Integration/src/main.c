@@ -60,6 +60,7 @@ const short MAP[MAP_GRID_HEIGHT][MAP_GRID_WIDTH] = {
 
 // Queue for sorting and rendering cubes that are within the camera frustum.
 CubeEntity* visibleList[MAX_ACTIVE_CUBES];
+// These are all the created cubes.
 extern CubeEntity world_cubes[MAX_ACTIVE_CUBES];
 
 /**

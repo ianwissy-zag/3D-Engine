@@ -154,20 +154,14 @@
     logic        rc_valid_s1, is_wall_s1;
     logic [7:0]  y_s1;
     logic [16:0] rc_wr_adr_s1;
-    logic [6:0]  texY_s1;
+    logic [13:0] tex_adr_s1;
+    logic [9:0]  wall_top_s1;
 
-    // Pipeline Stage 2 Signals: Texture address generation
+    // Pipeline Stage 2 Signals: Data capture and final output formatting
     logic        rc_valid_s2, is_wall_s2;
     logic [7:0]  y_s2; 
     logic [9:0]  wall_top_s2;            
     logic [16:0] rc_wr_adr_s2;
-    logic [13:0] tex_adr_s2;
-
-    // Pipeline Stage 3 Signals: Data capture and final output formatting
-    logic        rc_valid_s3, is_wall_s3;
-    logic [7:0]  y_s3;
-    logic [9:0]  wall_top_s3;          
-    logic [16:0] rc_wr_adr_s3;
 
     // State Machine and Stage 1 Logic
     always_ff @(posedge gpu_clk) begin
@@ -204,8 +198,9 @@
                     rc_wr_adr_s1 <= (y_cnt * SCREEN_WIDTH) + gpu_column;
                     // Check if current pixel falls within the wall bounds
                     is_wall_s1   <= (y_cnt >= wall_top) && (y_cnt <= wall_bottom);
-                    // Extract the integer portion of the fixed point texture Y coordinate
-                    texY_s1      <= texY_fixed[14:8];
+                    // Generate texture address using the integer portion of the fixed point texture Y coordinate
+                    tex_adr_s1   <= {texY_fixed[14:8], gpu_texX[6:0]};
+                    wall_top_s1  <= wall_top;
 
                     // Increment texture pointer only if we are currently drawing the wall
                     if (y_cnt >= wall_top && y_cnt <= wall_bottom) begin
@@ -220,40 +215,30 @@
         end
     end
 
-    // Pipeline Stages 2 & 3
+    // Pipeline Stage 2
     always_ff @(posedge gpu_clk) begin
         if (gpu_rst) begin
             rc_valid_s2 <= 1'b0;
-            rc_valid_s3 <= 1'b0;
         end else begin
-            // ---- Stage 2: Calculate Texture Address ----
+            // ---- Stage 2: Fetch texture Data and Shift Pipelined Signals ----
+            tex_data     <= tex_rom[tex_adr_s1]; // Synchronous ROM read happens here
             rc_valid_s2  <= rc_valid_s1;
             y_s2         <= y_s1;
-            wall_top_s2  <= wall_top;
+            wall_top_s2  <= wall_top_s1;
             rc_wr_adr_s2 <= rc_wr_adr_s1;
             is_wall_s2   <= is_wall_s1;
-            // Concatenate Y and X texture coords (assuming 128x128 texture, so 7 bits each)
-            tex_adr_s2   <= {texY_s1, gpu_texX[6:0]};
-
-            // ---- Stage 3: Fetch texture Data and Shift Pipelined Signals ----
-            tex_data     <= tex_rom[tex_adr_s2]; // Synchronous ROM read happens here
-            rc_valid_s3  <= rc_valid_s2;
-            y_s3         <= y_s2;
-            wall_top_s3  <= wall_top_s2;
-            rc_wr_adr_s3 <= rc_wr_adr_s2;
-            is_wall_s3   <= is_wall_s2;
         end
     end
 
-    // Output assignment based on Stage 3 results
+    // Output assignment based on Stage 2 results
     always_comb begin
-        rc_wr_en  = rc_valid_s3;
-        rc_wr_adr = rc_wr_adr_s3;
+        rc_wr_en  = rc_valid_s2;
+        rc_wr_adr = rc_wr_adr_s2;
 
         // Multiplexer for pixel color:
         // If not a wall, check if Y is above the wall_top to draw ceiling (033), else floor (077).
         // If it is a wall, output the fetched texture pixel.
-        if (!is_wall_s3) rc_wr_data = (y_s3 < wall_top_s3) ? 12'h033 : 12'h077; 
+        if (!is_wall_s2) rc_wr_data = (y_s2 < wall_top_s2) ? 12'h033 : 12'h077; 
         else             rc_wr_data = tex_data;
     end
     
@@ -624,7 +609,7 @@
        end
    end
 
-   assign busy = (current_state != IDLE) || rc_valid_s1 || rc_valid_s2 || rc_valid_s3 || 
+   assign busy = (current_state != IDLE) || rc_valid_s1 || rc_valid_s2 || 
                  (tri_state != T_IDLE) || have_v0 || have_v1 || have_v2 || tri_start_pending;
 
 // Functions
